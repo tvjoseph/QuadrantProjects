@@ -1,0 +1,29 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1479383635890.000,
+    "dirty" : false,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "DA8E7B54",
+    "lastKnownWriteTime" : 1479376092,
+    "last_content_update" : 1479383635890,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "cacheKey" : "9C4C9583",
+        "caption" : "school_count",
+        "contentUrl" : "grid_resource/gridviewer.html?env=&obj=school_count&cache_key=9C4C9583",
+        "displayedObservations" : "14",
+        "environment" : "",
+        "object" : "school_count",
+        "preview" : "0",
+        "totalObservations" : "14",
+        "variables" : "2"
+    },
+    "relative_order" : 11,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_dataframe"
+}

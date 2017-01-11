@@ -1,0 +1,1 @@
+"0","Desoto_New %>% filter(StudentID %in% attend_250$StudentID[101:126]) %>% filter(FirstTier == ""Discipline"") %>% summarise(Totdis = sum(as.numeric(Variable),na.rm=TRUE))"

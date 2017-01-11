@@ -1,0 +1,29 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1478845511211.000,
+    "dirty" : false,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "C72836E4",
+    "lastKnownWriteTime" : 7308604914264011873,
+    "last_content_update" : 1478845511211,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "cacheKey" : "EB5483DA",
+        "caption" : "Desoto_New",
+        "contentUrl" : "grid_resource/gridviewer.html?env=&obj=Desoto_New&cache_key=EB5483DA",
+        "displayedObservations" : "978013",
+        "environment" : "",
+        "object" : "Desoto_New",
+        "preview" : "0",
+        "totalObservations" : "978013",
+        "variables" : "15"
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_dataframe"
+}

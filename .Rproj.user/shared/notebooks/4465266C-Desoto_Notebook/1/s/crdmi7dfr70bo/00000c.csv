@@ -1,0 +1,2 @@
+"0","q8 <- ggplot(data=bindata2,aes(Bin,Value,color=Variable,group=1)) + geom_point() + geom_line() + facet_grid(Variable~.,scales = ""free"")"
+"0","q8 + theme(axis.text.x=element_text(angle=70,hjust=1))"

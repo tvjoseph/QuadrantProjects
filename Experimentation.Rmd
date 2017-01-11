@@ -1,0 +1,34 @@
+---
+title: "JMJPFU-Experimentation"
+author: "Quadrant-4 Team"
+date: "18 October 2016"
+output: html_document
+---
+# JMJPFU
+
+This is a Markdown file to experiment various methods in R. 
+
+First we will try the scalaing methods
+
+```{r}
+library(caret)
+
+# Taking a subset data for trying
+
+exp_subset <- School_rec %>% select(StudentID,SchoolID,Normvar,Normpop,Population)
+
+exp_subset <- exp_subset[complete.cases(exp_subset),]
+
+# Changing each variable into numeric one by one
+exp_subset$Population <- as.numeric(exp_subset$Population)
+str(exp_subset)
+# Normalising using centering and scalaing
+
+Preprocess_school <- preProcess(exp_subset,method = c("center","scale"))
+
+print(Preprocess_school)
+
+school_transformed <- predict(Preprocess_school,exp_subset)
+
+```
+

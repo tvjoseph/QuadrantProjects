@@ -1,0 +1,5 @@
+"0","stud_disc <- attend150_data %>% filter(StudentID %in% temp$StudentID) %>% filter(FirstTier==""Discipline"") %>% select(ThirdTier)"
+"0","stud_disc$cou <- 1"
+"0","stud_disc_con <- stud_disc %>% group_by(ThirdTier) %>% summarise(Cou = sum(cou)) %>% arrange(desc(Cou))"
+"0","# Visualisation of the same"
+"0","ggplot(data = stud_disc_con,aes(ThirdTier,Cou)) + geom_bar(stat = ""identity"", width = 0.2, position = ""dodge"") + ggtitle(""Top Discipline Cases"") + theme(axis.text.x = element_text(angle = 90))"

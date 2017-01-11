@@ -1,0 +1,7 @@
+"0","####### Doing for all schools together"
+"0","Disc_exp2 <- Desoto_New %>% filter(FirstTier == ""Discipline"")"
+"0","Disc_exp2 <- merge(Disc_exp2,Discipline_template,all.x = TRUE)"
+"0","Disc_exp2$Wtdisc <- Disc_exp2$Weight * Disc_exp2$Normvar"
+"0","Disc_agg2 <- Disc_exp2 %>% group_by(Schoolname) %>% summarise(Norm = sum(as.numeric(Variable)),unwtdisc = sum(Normvar),Wtdisc = sum(Wtdisc))"
+"0","# Visualising the same"
+"0","ggplot(data=Disc_agg2,aes(Schoolname,Norm,color=Schoolname,group=1)) + geom_point() + geom_line()+ theme(axis.text.x=element_text(angle=70,hjust=1))"

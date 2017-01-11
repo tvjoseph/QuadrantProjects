@@ -1,0 +1,393 @@
+---
+title: "Desoto Predictive Model Project"
+output:
+  html_document: default
+  html_notebook: default
+JMJPFU: Nov-11-2016
+---
+
+The objective of this analysis is to set a path forward on the task of building predictive models for School data. This brief analysis, is to demonstrate the process of analysis and also high light some of the additional data points required for building a robust model.
+
+
+# John Hopkins study on early warning systems
+
+Research indicates to what is called the ABC's for early warning system for school drop out. These are
+1. Attendence
+2. Behaviour : Discipline
+3. Curriculum : Especially grades in Maths and English
+
+A meaning ful analysis would be to take one of these variables and then look at relationships that exists for this variable with the other. 
+
+
+
+# Perspective 1 : Identification of Students who might be risky : 
+# Lag Indicator : Instances of attendence:
+
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+As a first step, we are filtering the students with respect to incidents of attendence and are trying to study any trends / associations with the other variables i.e behaviour and grades
+
+```{r}
+
+Indi_attend <- Desoto_New %>% filter(FirstTier == "Attendence") %>% group_by(StudentID) %>% summarise(Attend = sum(as.numeric(Variable))) # Looking only at the attendence data
+
+range(Indi_attend$Attend)
+mean(Indi_attend$Attend)
+
+# Doing some visualisation
+
+q1 <- ggplot(data=Indi_attend,aes(StudentID,Attend,group=1)) + geom_point() + geom_line()
+q1 + theme(axis.text.x=element_text(angle=90,hjust=1))
+
+```
+The above is a plot of all the students of Desoto for a year with respect to the aggregated levels of attendence.
+
+As can be seen from the plot, most of the students lie within the range of 0 - 45 incidents of attendence. 
+However we can also see some cases with higher incidents of attendence. Let us closely observe those higher value cases and look for some trends.
+
+
+Let us look at those cases where the attendence incidence is more than 250
+
+```{r}
+
+attend_250 <- Indi_attend %>% filter(Attend > 250) %>% arrange(desc(Attend))
+
+# Imputing function moved to the functions script
+
+```
+
+Let us pick up few of the cases from top of the list and look at any trends in terms of behaviours
+
+
+```{r}
+
+stud_consol <- Desoto_New %>% filter(StudentID %in% attend_250$StudentID[1:5])
+
+stud_consol$Date <- as.character(stud_consol$Date)
+
+stud_consol$Month <- format(as.Date(stud_consol$Date),"%B") # Making a new variable for Month
+stud_consol$Day <- format(as.Date(stud_consol$Date),"%a")
+
+
+# Doing aggregation with respect to the Tiers with the function
+
+########### Hiding the function because it is not getting created when preview is done
+
+stud_agg <- firstier(stud_consol) # Running the function for the consolidation of the cases
+
+###################################################
+
+# Need to convert the Month as per the academic year order
+
+stud_agg$Month <- factor(stud_agg$Month,levels = c("August","September","October","November","December","January","February","March","April","May","June"))
+
+
+# Plotting all the variables together
+
+q2 <- ggplot(data=stud_agg,aes(Month,Var,color=FirstTier,group=1)) + geom_point() + geom_line() + facet_grid(FirstTier~StudentID,scales = "free")
+q2 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+```
+
+Observations from all 126 cases :
+1. One general observation which was found when looking accross the various cases was, high level of attendence incidents does not necessarily mean high level of discipline. 
+2. However high level of attendence incidents were generally found to have lower levels of average grades
+3. Another observation was on the frequency of discipline issues. The discipline incidents are found to be frequenting in the month of Sept and then in Jan
+
+Question:
+
+1. Is the discipline incidents inversely proportional to the attendence incidents. The less the attendence more the discipline incidents of students. Let us check this out
+
+```{r}
+Desoto_New %>% filter(StudentID %in% attend_250$StudentID[101:126]) %>% filter(FirstTier == "Attendence") %>% summarise(Totdis = sum(as.numeric(Variable),na.rm=TRUE))
+
+Desoto_New %>% filter(StudentID %in% attend_250$StudentID[101:126]) %>% filter(FirstTier == "Discipline") %>% summarise(Totdis = sum(as.numeric(Variable),na.rm=TRUE))
+
+
+Desoto_New %>% filter(StudentID %in% attend_250$StudentID[1:26]) %>% filter(FirstTier == "Attendence") %>% summarise(Totdis = sum(as.numeric(Variable),na.rm=TRUE))
+
+Desoto_New %>% filter(StudentID %in% attend_250$StudentID[1:26]) %>% filter(FirstTier == "Discipline") %>% summarise(Totdis = sum(as.numeric(Variable),na.rm=TRUE))
+
+
+```
+
+The above inference is being validated here. The top attendence cases have a total of 157 discipline issues.
+
+The bottom attendence cases have a total of 287 attendence issues.
+1:63 :  Attendence : 17,680 : Discipline : 287
+
+64:126 : Attendence : 30,274 : Discipline : 154
+
+1:26 :  Attendence : 16,258 : Discipline : 23
+
+101:126 : Attendence : 6793 : Discipline : 117
+
+# Binning of Attendence cases and discipline issues
+
+To corraborate the above finding let us look at binning various attendence cases and see the incidents of discipline and grades accross various bins.
+
+Below are the bins selected.
+
+Bins : 1:20,20:40,40:60,60:80,80:100,100:150,150:200,200:300,300:400,400:500,500:600,600:700,700:800,800:900,900:1000,>1000
+
+
+```{r, message=FALSE, warning=FALSE}
+
+bins <- c(1,20,20,40,40,60,60,80,80,100,100,150,150,200,200,300,300,400,400,500,500,600,600,700,700,800,800,900,900,1000,1000,1324)
+
+
+bindata <- binvals(bins,Indi_attend)
+
+bindata2 <- binvals1(bins,Indi_attend)
+
+```
+
+Let us plot the bindata and see some trends
+
+```{r}
+
+bindata$Bin <- factor(bindata$Bin,levels = c("bin_1_20","bin_20_40","bin_40_60","bin_60_80","bin_80_100","bin_100_150","bin_150_200","bin_200_300","bin_300_400","bin_400_500","bin_500_600","bin_600_700","bin_700_800","bin_800_900","bin_900_1000", "bin_1000_1324"))
+
+bindata2$Bin <- factor(bindata2$Bin,levels = c("bin_1_20","bin_20_40","bin_40_60","bin_60_80","bin_80_100","bin_100_150","bin_150_200","bin_200_300","bin_300_400","bin_400_500","bin_500_600","bin_600_700","bin_700_800","bin_800_900","bin_900_1000", "bin_1000_1324"))
+
+q3 <- ggplot(data=bindata,aes(Bin,Value,color=Variable,group=1)) + geom_point() + geom_line() + facet_grid(Variable~.,scales = "free")
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+q8 <- ggplot(data=bindata2,aes(Bin,Value,color=Variable,group=1)) + geom_point() + geom_line() + facet_grid(Variable~.,scales = "free")
+q8 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+
+```
+
+# Some observations from the Attendence binning analysis.
+
+1. Students with lesser attendence tend to do well in terms of grades. The Discipline issues on average for these students are lower.
+2. The middle band of attendence i.e between 150 - 600 instances are where the grades are lowest and also the discipline incidents are the highest.
+3. The potential for finding the drop out cases could be higher from this band.
+4. Necessary interventions at school level should be given for students within this band.
+
+# Path Forward:
+
+From the initial level of inferences and analysis done let us list down the path forward if we have to build models for doing predictive analytics.
+
+1. From literature study, we have understood that indications of a students ABC profile has to be observed over time i.e accross various years / grades to correctly predict the chances of imminent drop outs.
+2. Only if we have data accross the years we will also be able to give interventions at the right time which will help in arresing the trends of prospective drop outs.
+3. We would also need to have cases where students have dropped out and have historical data of those students to learn from their student time lines the early indicators which will ultimately result in drop outs.
+
+
+# Potential of New Variables
+
+### Analysis of Discipline issues accross schools - Normalisation of Variables
+
+Another perspective is the distribution of discipline issues across schools. The First graph shows the graph from a pure number perspective.
+
+
+```{r}
+####### Doing for all schools together
+
+Disc_exp2 <- Desoto_New %>% filter(FirstTier == "Discipline")
+Disc_exp2 <- merge(Disc_exp2,Discipline_template,all.x = TRUE)
+Disc_exp2$Wtdisc <- Disc_exp2$Weight * Disc_exp2$Normvar
+
+Disc_agg2 <- Disc_exp2 %>% group_by(Schoolname) %>% summarise(Norm = sum(as.numeric(Variable)),unwtdisc = sum(Normvar),Wtdisc = sum(Wtdisc))
+
+# Visualising the same
+
+ggplot(data=Disc_agg2,aes(Schoolname,Norm,color=Schoolname,group=1)) + geom_point() + geom_line()+ theme(axis.text.x=element_text(angle=70,hjust=1))
+
+ggplot(data=Disc_agg2,aes(Schoolname,unwtdisc,color=Schoolname,group=1)) + geom_point() + geom_line()+ theme(axis.text.x=element_text(angle=70,hjust=1))
+
+
+
+
+```
+The above graph with pure numbers would not give a right picture. The reason why Desoto High school is topping the charts is because this school has the highest population of students. So obviously this school will have the top incidents of discipline or attendence. What is required is to take each of the variable in proportion to the population of the school. The second graph is after considering the discipline normalised by the population of the school and many schools which were lower in the list have risen up like JJAEP.
+
+Looking at the discipline issues prevelant within schools one would wonder why certain schools have high level of discipline issues v/s others who have low level of discipline issues. For Example,
+
+Frank D Moates have around : 950 students & East Middle school : 805. However the incidents of indiscipline is higher in East Middle school than Frank D Moates.Or for that matter East middle school v/s Macowan middle school ( 1037)
+
+Is there a reflection of the city which the town exists ? Does the crime rate in the city reflect in the indiscipline rate among schools also ??
+
+
+### Potential for bringing in outside variables
+
+JJAEP - Juvenile Justice Alternate Education Program : School for students who have various offenses.
+
+East Middle School ,Desoto : Crimes per square miles ; 89
+
+McCowan Middle School,Glenn Heights : Crimes per square miles : 44
+
+National median ( 33.2)
+
+
+https://www.neighborhoodscout.com/tx/desoto/crime/
+https://www.neighborhoodscout.com/tx/glenn-heights/crime/
+http://www.areavibes.com/compare-results/?place1=Humble%2C%20TX&place2=Glenn%20Heights%2C%20TX#cri
+
+Similar to the crime rate which can be brought from external sources, we should also bring in other variables which are relevant for effective modelling.
+
+### Other Data sets that could be introduced
+
+1. NCES( National Centre for Educational stat) Data : Data on Student population, Teacher / Student ratio
+2. Education Resource Group : Benchmarking with other schools.
+
+
+# Spin Off : Exploratory Analysis to be ploughed back into the existing dashboards
+
+
+An analysis of top discipline cases accross schools
+
+```{r}
+stud_disc <- attend150_data %>% filter(StudentID %in% temp$StudentID) %>% filter(FirstTier=="Discipline") %>% select(ThirdTier)
+
+stud_disc$cou <- 1
+
+stud_disc_con <- stud_disc %>% group_by(ThirdTier) %>% summarise(Cou = sum(cou)) %>% arrange(desc(Cou))
+
+# Visualisation of the same
+
+ggplot(data = stud_disc_con,aes(ThirdTier,Cou)) + geom_bar(stat = "identity", width = 0.2, position = "dodge") + ggtitle("Top Discipline Cases") + theme(axis.text.x = element_text(angle = 90))
+
+
+```
+Many variables say for example like the top discipline cases would give more meaningful insights if we analyse this with respect to the impact of the incidents 
+
+For eg: The impact because of a dress code violation would be much less than that of say Posession of weapons or posession of drugs and alcohols.
+
+We need to bring in a perspective of discipline incidents weighed by the severity to get a better perspective of the incidents.
+
+```{r}
+
+Discipline_template
+
+```
+
+A set of weights were introduced with respect to the severity and the discipline incidents were analysed with respect to the weighted discipline incidents
+
+```{r}
+Disc_exp1 <- attend150_data %>% filter(StudentID %in% temp$StudentID) %>% filter(FirstTier=="Discipline") %>% select(Schoolname,Variable,Normvar,FourthTier)
+
+# Merging the weights of Discipline in this
+
+Disc_exp1 <- merge(Disc_exp1,Discipline_template,all.x = TRUE)
+
+Disc_exp1$Wtdisc <- Disc_exp1$Weight * Disc_exp1$Normvar # Normalising the discipline issues
+
+# Aggregating the schools
+
+Disc_agg <- Disc_exp1 %>% group_by(Schoolname) %>% summarise(Wtdisc = sum(Wtdisc))
+
+# Visualising the same
+
+# Weighted School and unweighted school
+
+ggplot(data=Disc_agg2,aes(Schoolname,unwtdisc,color=Schoolname,group=1)) + geom_point() + geom_line()+ theme(axis.text.x=element_text(angle=70,hjust=1))
+
+ggplot(data=Disc_agg2,aes(Schoolname,Wtdisc,color=Schoolname,group=1)) + geom_point() + geom_line()+ theme(axis.text.x=element_text(angle=70,hjust=1))
+
+
+
+
+```
+
+The first plot is where the discipline incidents were not weighted by its impact. The second is where it was weighted with respect to its impact.
+
+
+
+# Looking at grades and which subjects had lower grade bands
+
+Another perspective we can bring in is in terms of subjects where the students who are found in the middle band tend to do badly. 
+
+```{r}
+
+stud_grade <- attend150_data %>% filter(StudentID %in% temp$StudentID) %>% filter(FirstTier=="Grade") %>% arrange(as.numeric(Variable))
+
+range(as.numeric(stud_grade$Variable),na.rm = TRUE)
+
+stud_grade$Variable <- as.numeric(stud_grade$Variable)
+
+stud_grade <- grade_norm(stud_grade)
+
+```
+
+The ranges of scores are from 1 - 100. Let us look at bins of grades and look at subjects where these students score badly
+
+```{r}
+
+bin_20 <- stud_grade %>% filter(Variable < 20) %>% select(SecondTier) %>% mutate(cou = 1) %>% group_by(SecondTier) %>% summarise(cou = sum(cou))
+
+ggplot(data = bin_20,aes(SecondTier,cou,color=SecondTier)) + geom_bar(stat = "identity", width = 0.2, position = "dodge") + ggtitle("< 20")
+
+### Second Bin
+
+bin_30 <- stud_grade %>% filter(Variable >= 20 & Variable < 30) %>% select(SecondTier) %>% mutate(cou = 1) %>% group_by(SecondTier) %>% summarise(cou = sum(cou))
+
+ggplot(data = bin_30,aes(SecondTier,cou,color=SecondTier)) + geom_bar(stat = "identity", width = 0.2, position = "dodge") + ggtitle("20-30")
+
+### Third Bin
+
+bin_40 <- stud_grade %>% filter(Variable >= 30 & Variable < 40) %>% select(SecondTier) %>% mutate(cou = 1) %>% group_by(SecondTier) %>% summarise(cou = sum(cou))
+
+ggplot(data = bin_40,aes(SecondTier,cou,color=SecondTier)) + geom_bar(stat = "identity", width = 0.2, position = "dodge") + ggtitle("30-40")
+
+### Fourth Bin
+
+bin_50 <- stud_grade %>% filter(Variable >= 40 & Variable < 50) %>% select(SecondTier) %>% mutate(cou = 1) %>% group_by(SecondTier) %>% summarise(cou = sum(cou))
+
+ggplot(data = bin_50,aes(SecondTier,cou,color=SecondTier)) + geom_bar(stat = "identity", width = 0.2, position = "dodge") + ggtitle("40-50")
+
+### Fifth Bin
+
+bin_60 <- stud_grade %>% filter(Variable >= 50 & Variable < 60) %>% select(SecondTier) %>% mutate(cou = 1) %>% group_by(SecondTier) %>% summarise(cou = sum(cou))
+
+ggplot(data = bin_60,aes(SecondTier,cou,color=SecondTier)) + geom_bar(stat = "identity", width = 0.2, position = "dodge") + ggtitle("50-60")
+
+### Sixth Bin
+
+bin_70 <- stud_grade %>% filter(Variable >= 60 & Variable < 70) %>% select(SecondTier) %>% mutate(cou = 1) %>% group_by(SecondTier) %>% summarise(cou = sum(cou))
+
+ggplot(data = bin_70,aes(SecondTier,cou,color=SecondTier)) + geom_bar(stat = "identity", width = 0.2, position = "dodge") + ggtitle("60-70")
+
+### Seventh Bin
+
+bin_80 <- stud_grade %>% filter(Variable >= 70 & Variable < 80) %>% select(SecondTier) %>% mutate(cou = 1) %>% group_by(SecondTier) %>% summarise(cou = sum(cou))
+
+ggplot(data = bin_80,aes(SecondTier,cou,color=SecondTier)) + geom_bar(stat = "identity", width = 0.2, position = "dodge") + ggtitle("70-80")
+
+### Eighth Bin
+
+bin_90 <- stud_grade %>% filter(Variable >= 80) %>% select(SecondTier) %>% mutate(cou = 1) %>% group_by(SecondTier) %>% summarise(cou = sum(cou))
+
+ggplot(data = bin_90,aes(SecondTier,cou,color=SecondTier)) + geom_bar(stat = "identity", width = 0.2, position = "dodge") + ggtitle("80-90")
+
+
+##### Ninth bin
+
+bin_low <- stud_grade %>% filter(Variable < 60) %>% select(SecondTier) %>% mutate(cou = 1) %>% group_by(SecondTier) %>% summarise(cou = sum(cou))
+
+ggplot(data = bin_low,aes(SecondTier,cou,color=SecondTier)) + geom_bar(stat = "identity", width = 0.2, position = "dodge") + ggtitle("Bin_Low")
+
+# Tenth bin
+
+bin_top <- stud_grade %>% filter(Variable > 60) %>% select(SecondTier) %>% mutate(cou = 1) %>% group_by(SecondTier) %>% summarise(cou = sum(cou))
+
+ggplot(data = bin_top,aes(SecondTier,cou,color=SecondTier)) + geom_bar(stat = "identity", width = 0.2, position = "dodge") + ggtitle("Bin_Top")
+
+
+```
+
+The above bar charts are the distribution of the subjects accross various bins of grades. It can be seen that Class period names  4, 3 followed by 8 have the highest instances of lower average grades
+
+Students who get high scores, get high scores across subjects.
+
+
+
+
+
+
+
+

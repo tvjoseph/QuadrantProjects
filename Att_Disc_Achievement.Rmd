@@ -1,0 +1,786 @@
+---
+title: "Desoto_Att_Disc_Achieve"
+author: "Quadrant-4"
+date: "September 19, 2016"
+output: html_document
+---
+In this Document, we venture into observing the relationship between Attendence, Discipline and the grades obtained. Let us list down the various objectives which needs to be set out for this analysis. 
+
+1. Relationship between Attendence and grade
+2. Relationshp between discipline score and grade
+3. Relationship between Attendence and discipline
+4. Patterns in terms of Attendence - School,Race, Time of year, Economic status, Sections
+5. Patterns in terms of Discipline - School,Race, Time of year, Ecomonic status, Sections
+6. Patterns of grade - School, Subjects where grades dropping, Subjects where grade improving, 
+
+# Preparation of the data in the workable format
+
+A timeline of student activity was introduced
+
+```{r}
+
+All_Stud_timeline_back3 <- All_Stud_timeline # The new data frame got after introducing STUD ID
+
+
+```
+
+
+# First set of aggregation and Analysis
+Let us now aggregate accross the readings and check for trends. 
+
+```{r}
+library(dplyr)
+library(ggplot2)
+# Aggregating students data
+
+stud_agg1 <- All_Stud_timeline %>% group_by(StudID) %>% summarise(Conpop = sum(normpop,na.rm=TRUE),ConRace = sum(normrace,na.rm=TRUE),Condisc = sum(Discore,na.rm=TRUE),Congrad = sum(Congrade,na.rm=TRUE))
+
+# Let us look at some summary level stats
+
+range(stud_agg1$Congrad)
+
+# A value of 27860 seems to be erraneous
+
+temp <- stud_agg1 %>% filter(Congrad > 5000 )
+
+id <- paste(temp[2,1])
+
+# Sample case analysis
+
+# 1187110489 1187110489
+
+for(i in 1:nrow(temp)){
+ id <- paste(temp[i,1])
+
+temp1 <- New_Stud_timeline %>% filter(StudID == id)
+
+temp1 <- temp1 %>% filter(Congrade != 0)
+
+temp$rec[i] <- nrow(temp1)
+  
+}
+
+
+# So there are duplicates in records in the Stud_timeline Df
+
+# Taking values of temp > 7
+
+temp <- temp %>% filter(rec > 7)
+
+
+```
+
+Taking the aggregated values again after removing the duplicate Ids
+
+```{r}
+
+# Aggregating students data
+
+stud_agg1 <- New_Stud_timeline %>% group_by(StudID) %>% summarise(Conpop = sum(normpop,na.rm=TRUE),ConRace = sum(normrace,na.rm=TRUE),Condisc = sum(Discore,na.rm=TRUE),Congrad = sum(Congrade,na.rm=TRUE))
+
+# Let us look at some summary level stats
+
+range(stud_agg1$Congrad)
+
+temp <- stud_agg1 %>% filter(Congrad == 27860 )
+
+id <- paste(temp[1,1])
+
+# Sample case analysis
+
+# 3885717684 1187110489
+
+
+
+temp1 <- New_Stud_timeline %>% filter(StudID == "3885717684")
+
+temp1 <- temp1 %>% filter(Congrade != 0)
+
+temp$rec[i] <- nrow(temp1)
+
+# 
+  
+
+```
+
+Let us try out some graphs for these and see some trends emerging
+
+```{r}
+
+q1 <- ggplot(stud_agg1,aes(StudID,Congrad)) + geom_point() 
+q1 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Discipline issues
+
+q2 <- ggplot(stud_agg1,aes(StudID,Condisc)) + geom_point() 
+q2 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Attendence
+
+q3 <- ggplot(stud_agg1,aes(StudID,Conpop)) + geom_point() 
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+
+
+```
+
+Let us now look at school wise trends. 
+
+1. Which School has the heighest trend in Discipline
+2. Which school has the greatest trends in attendence and what type
+
+```{r}
+school_agg1 <- New_Stud_timeline %>% group_by(StateOrganizationId) %>% summarise(Conpop = sum(normpop,na.rm=TRUE),ConRace = sum(normrace,na.rm=TRUE),Condisc = sum(Discore,na.rm=TRUE),Congrad = sum(Congrade,na.rm=TRUE))
+
+# Attendence plots of schools
+q1 <- ggplot(school_agg1,aes(as.factor(StateOrganizationId),Conpop)) + geom_point() 
+q1 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+```
+
+# JMJPFU
+29-Sept-2016
+
+Need to develop a new format for data aggregation
+
+# JMJPFU
+03-Oct-2016
+
+A new format was developed. Need to explore that further
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+school_agg1 <- Desoto_New %>% group_by(SchoolID,FirstTier) %>% summarise(Convar = sum(Normvar,na.rm=TRUE))
+
+# Attendence plots of schools
+q1 <- ggplot(school_agg1,aes(as.factor(SchoolID),Convar,color=SchoolID,group=1)) + geom_point() + facet_grid(FirstTier~.,scales = "free")
+q1 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+```
+
+# JMJPFU
+05-10-2016
+
+Let us now get into inferential studies on this data set.
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+
+school_agg1 <- Desoto_New %>% group_by(SchoolID,FirstTier) %>% summarise(Convar = sum(Normpop,na.rm=TRUE))
+
+# Attendence plots of schools
+q1 <- ggplot(school_agg1,aes(as.factor(SchoolID),Convar,color=SchoolID,group=1)) + geom_line() + facet_grid(FirstTier~.,scales = "free")
+q1 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Taking a log of the variable to highlight it further
+
+school_agg1$logvar <- log(school_agg1$Convar)
+
+q2 <- ggplot(school_agg1,aes(as.factor(NameOfInstitution),logvar,color=SchoolID,group=1)) + geom_line() + facet_grid(FirstTier~.,scales = "free")
+q2 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+
+```
+
+From the initial graph, it can be seen that JJAEP Dallas Co to be one of the worst performing school and Desoto High School, West Middle school, East Middle school and McCowan Middle school some of the best performing school.
+
+Let us first look at the JJAEP Dallas Co school and see what are the general trends around the school in terms of Attendence, Discipline and Grades
+
+This school has only 10 students in it. So any further analysis for this school could be very skewed
+
+# Variable - Discipline
+
+```{r}
+
+JJEP_rec <- Desoto_New %>% filter(SchoolID == "57906007")
+
+# Making a Month and Day variables
+
+JJEP_rec$Month <- format(as.Date(as.character(JJEP_rec$Date)),"%B") # Month
+
+JJEP_rec$Day <- format(as.Date(as.character(JJEP_rec$Date)),"%a") # Month
+
+JJEP_disc <- Desoto_New %>% filter(SchoolID == "57906007" & FirstTier == "Discipline") %>% group_by(ThirdTier,Economic) %>% summarise(dissum = sum(Normpop))
+
+# Some pictorial representation of data # This representation dosent reveal anythin important
+
+q3 <- ggplot(JJEP_rec,aes(Month,Normpop,color=Economic,group=1)) + geom_point() + facet_grid(FirstTier~.,scales = "free")
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+
+
+```
+
+Only 5 records of discipline data and 4 of them are by economically advantaged students. 
+
+# Variable Grade
+
+```{r}
+
+# Grades # hierarchy I - 
+
+school_grade <- Desoto_New %>% filter(FirstTier == "Grade") %>% group_by(SchoolID,SecondTier) %>% summarise(avggrd = mean(as.numeric(Variable),na.rm=TRUE))
+
+school_grade <- school_grade[complete.cases(school_grade),]
+
+for(i in 1:nrow(school_grade)){
+  temp <- school_grade$SecondTier[i]
+  
+  if(temp =="1"){school_grade$SecondTier[i] <- "01"}
+  else if(temp =="2"){school_grade$SecondTier[i] <- "02"}
+  else if(temp =="3"){school_grade$SecondTier[i] <- "03"}
+  else if(temp =="4"){school_grade$SecondTier[i] <- "04"}
+  else if(temp =="5"){school_grade$SecondTier[i] <- "05"}
+  else if(temp =="6"){school_grade$SecondTier[i] <- "06"}
+  else if(temp =="7"){school_grade$SecondTier[i] <- "07"}
+  else if(temp =="8"){school_grade$SecondTier[i] <- "08"}
+  else if(temp =="9"){school_grade$SecondTier[i] <- "09"}
+  
+  
+}
+
+q3 <- ggplot(school_grade,aes(as.factor(SecondTier),color = as.factor(SchoolID),avggrd,group=1)) + geom_line() + facet_grid(SchoolID~.,scales = "free")
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+
+```
+
+Let us get into a new aggregatin template
+
+Month > Attendence type > Economic > sum of variable
+
+```{r}
+# Visualisation for Discipline and Attendence - Hierarchy I - Month wise both discipline and attendence together
+
+JJEP_disc <- JJEP_rec %>% filter(FirstTier != "Grade") %>% group_by(Month) %>% summarise(dissum = sum(as.numeric(Variable)))
+
+JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+q3 <- ggplot(JJEP_disc,aes(Month,dissum,group=1)) + geom_line()
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Visualisation for Discipline and Attendence - Hierarchy II - Month wise both discipline and attendence together. Seperating as per economic character
+
+JJEP_disc <- JJEP_rec %>% filter(FirstTier != "Grade") %>% group_by(Month,Economic) %>% summarise(dissum = sum(as.numeric(Variable)))
+
+JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+q3 <- ggplot(JJEP_disc,aes(Month,dissum,color=Economic,group=1)) + geom_line() + facet_grid(.~Economic)
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+
+# Visualisation for Discipline and Attendence - Hierarchy III - Month wise , Tier wise , Economic 
+
+JJEP_disc <- JJEP_rec %>% filter(FirstTier != "Grade") %>% group_by(Month,ThirdTier,Economic) %>% summarise(dissum = sum(as.numeric(Variable)))
+
+JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+# Visualisation
+
+q3 <- ggplot(JJEP_disc,aes(Month,dissum,color=Economic,group=1)) + geom_line() + facet_grid(ThirdTier~Economic,scales = "free")
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Hierarchy III - Another perspective for Visualisation for Discipline and Attendence
+
+JJEP_disc2 <- JJEP_rec %>% filter(FirstTier != "Grade") %>% group_by(Economic,Month,FirstTier) %>% summarise(dissum = sum(as.numeric(Variable)))
+
+JJEP_disc2$Month <- factor(JJEP_disc2$Month,month.name)
+
+# Visualising the terms 
+
+q3 <- ggplot(JJEP_disc2,aes(Month,dissum,color=Economic,group=1)) + geom_line() + facet_grid(FirstTier~Economic,scales = "free")
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Visualisation for Grades
+
+JJEP_disc1 <- JJEP_rec %>% filter(FirstTier == "Grade") %>% group_by(SecondTier,Economic) %>% summarise(dissum = sum(as.numeric(Variable)))
+
+JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+# Visualising the terms 
+
+q3 <- ggplot(JJEP_disc1,aes(SecondTier,dissum,color=Economic,group=1)) + geom_line() + facet_grid(.~Economic)
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+
+```
+
+So here are the findings from teh first school.
+
+1. No of students is very low. So not a good indicator for any trends
+2. The grades of economically advantaged students are better than economically disadvantaged students
+3. The course/period 2 shows the highest grade for both advantaged and disadvantaged students
+4. Incidents both in terms of discipline and attendence is more pronounced in Feb. However there are two trends i.e it peaks in the second month after the school reopens after the break
+5. Economically disadvantaged have more instance of incidents than advantaged
+6. For Economically advantaged students the peak of incidents were found to be in Sept- oct for as for disadvantaged students Feb-March was the more prominenet months
+
+# School DAEP - Same kind of trends
+
+```{r}
+
+School_rec <- Desoto_New %>% filter(SchoolID == "57906008")
+
+# Making a Month and Day variables
+
+School_rec$Month <- format(as.Date(as.character(School_rec$Date)),"%B") # Month
+
+School_rec$Day <- format(as.Date(as.character(School_rec$Date)),"%a") # Month
+
+# Also creating a normalisation variable for economically advantaged and economically disadvantaged
+
+School_rec$Normec <- NA
+
+for(i in 1:nrow(School_rec)){
+  temprec <- paste(School_rec$FirstTier[i])
+  
+  if(temprec != "Grade"){
+    
+    tempec <- paste(School_rec$Economic[i])
+    ifelse(tempec == "Yes",School_rec$Normec[i] <- as.numeric(School_rec$Variable[i])/327,School_rec$Normec[i] <- as.numeric(School_rec$Variable[i])/107)
+    
+    
+  }
+  
+  
+}
+
+
+```
+
+Next level of analysis
+
+```{r}
+
+# Visualisation for Discipline and Attendence - Hierarchy I - Month wise both discipline and attendence together
+
+JJEP_disc <- School_rec %>% filter(FirstTier != "Grade") %>% group_by(Month) %>% summarise(dissum = sum(as.numeric(Variable)))
+
+JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+q3 <- ggplot(JJEP_disc,aes(Month,dissum,group=1)) + geom_line()
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Visualisation for Discipline and Attendence - Hierarchy II - Month wise both discipline and attendence together. Seperating as per economic character
+
+JJEP_disc <- School_rec %>% filter(FirstTier != "Grade") %>% group_by(Month,Economic) %>% summarise(dissum = sum(Normec))
+
+JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+q3 <- ggplot(JJEP_disc,aes(Month,dissum,color=Economic,group=1)) + geom_line() + facet_grid(.~Economic)
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+
+# Visualisation for Discipline and Attendence - Hierarchy III - Month wise , Tier wise , Economic 
+
+JJEP_disc <- School_rec %>% filter(FirstTier != "Grade") %>% group_by(Month,SecondTier,Economic) %>% summarise(dissum = sum(as.numeric(Normec)))
+
+JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+# Visualisation
+
+q3 <- ggplot(JJEP_disc,aes(Month,dissum,color=Economic,group=1)) + geom_line() + facet_grid(SecondTier~Economic,scales = "free")
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Hierarchy III - Another perspective for Visualisation for Discipline and Attendence
+
+JJEP_disc2 <- JJEP_rec %>% filter(FirstTier != "Grade") %>% group_by(Economic,Month,FirstTier) %>% summarise(dissum = sum(as.numeric(Variable)))
+
+JJEP_disc2$Month <- factor(JJEP_disc2$Month,month.name)
+
+# Visualising the terms 
+
+q3 <- ggplot(JJEP_disc2,aes(Month,dissum,color=Economic,group=1)) + geom_line() + facet_grid(FirstTier~Economic,scales = "free")
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Visualisation for Grades - Hierarchy I - Grades
+
+JJEP_disc1 <- School_rec %>% filter(FirstTier == "Grade") %>% group_by(SecondTier) %>% summarise(avggrd = mean(as.numeric(Variable),na.rm=TRUE))
+
+JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+# Visualising the terms 
+
+q3 <- ggplot(JJEP_disc1,aes(SecondTier,avggrd,group=1)) + geom_line() 
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Visualisation for Grades - Hierarchy II - Grades & Economic angle
+
+JJEP_disc1 <- School_rec %>% filter(FirstTier == "Grade") %>% group_by(SecondTier,Economic) %>% summarise(avggrd = mean(as.numeric(Variable),na.rm=TRUE))
+
+JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+q3 <- ggplot(JJEP_disc1,aes(SecondTier,avggrd,color=Economic,group=1)) + geom_line() + facet_grid(.~Economic)
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+
+# Visualisation for Grades - Hierarchy III - Grades, Race & Economic angle
+
+JJEP_disc1 <- School_rec %>% filter(FirstTier == "Grade") %>% group_by(SecondTier,Race,Economic) %>% summarise(avggrd = mean(as.numeric(Variable),na.rm=TRUE))
+
+JJEP_disc1$Month <- factor(JJEP_disc$Month,month.name)
+
+q3 <- ggplot(JJEP_disc1,aes(SecondTier,avggrd,color=Race,group=1)) + geom_line() + facet_grid(Economic~Race)
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+
+# # Perspective 2 - Combination of absence and grades. ( This dosent give a good indication)# 
+# JJEP_disc1 <- School_rec %>% filter(FirstTier == "Grade")# 
+# JJEP_disc1$FifthTier <- JJEP_disc1$SecondTier # Bringing common features together# 
+# JJEP_disc <- JJEP_disc1 %>% group_by(FifthTier) %>% summarise(Agg = mean(as.numeric(Variable),na.rm=TRUE))
+# JJEP_disc1 <- School_rec %>% filter(FirstTier == "Attendence") 
+# JJEP_disc2 <- JJEP_disc1 %>% group_by(FifthTier) %>% summarise(Agg = sum(as.numeric(Variable),na.rm=TRUE))
+
+
+```
+
+1. This school is following the general trend of all instances peaking in Feb and then April and May. Also there are some peaks happening in Oct also
+2. The incidents are peaking for economically advantaged in Feb and for the disadvantaged in April May
+3. Economically disadvantaged students have greater instances of indiscipline. The trend peaks in Sept and Feb. Incidentally second month after the school starts
+4. Economically advantaged students tend to take excused absence in comparison with the economically disadvantaged population. The excused leaves for advantaged people is high in April, May and also shows a momentary peak in February. However for disadvantaged students, the peak in in February and then it tapes of
+5. In terms of tardiness the advantaged students show peak in Feb and the disadvantaged show in Feb, Apri,May and also a smaller peak in October
+6. Unexcused absence : Again for advantaged folks the peak is around Feb-March time frame and then it peaks in December. However for disadvantaged students it is for April, May and then there is a gradual peak around Nov, December.
+7. From a grade perspective for this school, the average grades for 7 & 6 are higher and that from 1 & 5 are the lowest.
+8. From an economic perspective, there seems to be a difference in the average grade achieved by people of economic position. Where as the people of economically advantaged are seen to have higher average grades than that of economically disadvantaged students. There is also a variation as to the relative achievement of grades with respect to the subjects for economically advantaged and disadvantaged. Econmomically disadvantaged students tend to be doing badly in 5 relative to advantaged students. However economically advantaged tend to relatively do bad in subject 4 compared to the disadvantaged group.
+9. From a Race perspective, the American Indian race tends to be faring relatively better than other races from both the advantaged and disadvantaged sections. Now going back to the specific subjects, Subject 1 is low because of the low average of the advantaged white resources. However it needs to be seen whether this is just a one off case or whether we can see such trends accross schools
+
+# Another school
+
+# Woodridge Elementary
+
+```{r}
+
+School_rec <- Desoto_New %>% filter(SchoolID == "57906109")
+
+# Making a Month and Day variables
+
+School_rec$Month <- format(as.Date(as.character(School_rec$Date)),"%B") # Month
+
+School_rec$Day <- format(as.Date(as.character(School_rec$Date)),"%a") # Month
+
+# Also creating a normalisation variable for economically advantaged and economically disadvantaged
+
+table(School_rec$Economic)
+
+# No   Yes 
+# 17109 47810 
+
+School_rec$Normec <- NA
+
+for(i in 1:nrow(School_rec)){
+  temprec <- paste(School_rec$FirstTier[i])
+  
+  if(temprec != "Grade"){
+    
+    tempec <- paste(School_rec$Economic[i])
+    ifelse(tempec == "Yes",School_rec$Normec[i] <- as.numeric(School_rec$Variable[i])/605,School_rec$Normec[i] <- as.numeric(School_rec$Variable[i])/256)
+    
+    
+  }
+  
+}
+
+```
+
+Next level of analysis.
+
+```{r}
+
+# Visualisation for Discipline and Attendence - Hierarchy I - Month wise both discipline and attendence together
+
+JJEP_disc <- School_rec %>% filter(FirstTier != "Grade") %>% group_by(Month) %>% summarise(dissum = sum(as.numeric(Variable)))
+
+JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+q3 <- ggplot(JJEP_disc,aes(Month,dissum,group=1)) + geom_line()
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Visualisation for Discipline and Attendence - Hierarchy II - Month wise both discipline and attendence together. Seperating as per economic character
+
+JJEP_disc <- School_rec %>% filter(FirstTier != "Grade") %>% group_by(Month,Economic) %>% summarise(dissum = sum(Normec))
+
+JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+q3 <- ggplot(JJEP_disc,aes(Month,dissum,color=Economic,group=1)) + geom_line() + facet_grid(.~Economic)
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Visualisation for Discipline and Attendence - Hierarchy III - Month wise both discipline and attendence together. Seperating as per economic & Race character
+
+JJEP_disc <- School_rec %>% filter(FirstTier != "Grade") %>% group_by(Month,Race,Economic) %>% summarise(dissum = sum(as.numeric(Normec)))
+
+JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+q3 <- ggplot(JJEP_disc,aes(Month,dissum,color=Race,group=1)) + geom_line() + facet_grid(Race~Economic,scales = "free")
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Visualisation for Discipline and Attendence - Hierarchy IV - Month wise , Tier wise , Economic 
+
+JJEP_disc <- School_rec %>% filter(FirstTier != "Grade") %>% group_by(Month,SecondTier,Economic) %>% summarise(dissum = sum(as.numeric(Normec)))
+
+JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+# Visualisation
+
+q3 <- ggplot(JJEP_disc,aes(Month,dissum,color=Economic,group=1)) + geom_line() + facet_grid(SecondTier~Economic,scales = "free")
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Detailed perspective on Discipline alone - Hierarchy I
+
+
+JJEP_disc <- School_rec %>% filter(FirstTier == "Discipline") %>% group_by(ThirdTier) %>% summarise(dissum = sum(as.numeric(Variable)))
+
+JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+# Visualisation
+
+q3 <- ggplot(JJEP_disc,aes(ThirdTier,dissum,group=1)) + geom_line() 
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Discipline - Hierarchy II - Type of disciline and economic status
+
+JJEP_disc <- School_rec %>% filter(FirstTier == "Discipline") %>% group_by(ThirdTier,Economic) %>% summarise(dissum = sum(as.numeric(Normec)))
+
+JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+# Visualisation
+
+q3 <- ggplot(JJEP_disc,aes(ThirdTier,dissum,color = Economic,group=1)) + geom_line() + facet_grid(.~Economic)
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Looking at absolute count
+
+JJEP_disc <- School_rec %>% filter(FirstTier == "Discipline") %>% group_by(ThirdTier,Economic) %>% summarise(dissum = sum(as.numeric(Variable)))
+
+# Let us bring in Race wise composition into Discipline - Hierarchy III
+
+JJEP_disc <- School_rec %>% filter(FirstTier == "Discipline") %>% group_by(ThirdTier,Race,Economic) %>% summarise(dissum = sum(as.numeric(Variable)))
+
+#JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+# Visualisation
+
+q3 <- ggplot(JJEP_disc,aes(ThirdTier,dissum,color = Race,group=1)) + geom_line() + facet_grid(.~Race)
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Normalising with respect to Race
+
+School_rec1 <- School_rec %>% filter(FirstTier == "Discipline")
+School_rec1$Normrace <- NA
+
+
+for(i in 1:nrow(School_rec1)){
+  
+  tempec <- paste(School_rec$Race[i])
+    
+  if(tempec == "Black - African American"){School_rec1$Normrace[i] <- as.numeric(School_rec1$Variable[i])/714}
+  else if(tempec == "White"){School_rec1$Normrace[i] <- as.numeric(School_rec1$Variable[i])/134} 
+  else if(tempec == "Asian"){School_rec1$Normrace[i] <- as.numeric(School_rec1$Variable[i])/19}
+  else if(tempec == "American Indian - Alaskan Native"){School_rec1$Normrace[i] <- as.numeric(School_rec1$Variable[i])/69}
+  else if(tempec == "Native Hawaiian - Pacific Islander"){School_rec1$Normrace[i] <- as.numeric(School_rec1$Variable[i])/3}
+  
+}
+
+JJEP_disc <- School_rec1 %>% group_by(ThirdTier,Race,Economic) %>% summarise(dissum = sum(as.numeric(Normrace)))
+
+q3 <- ggplot(JJEP_disc,aes(ThirdTier,dissum,color = Race,group=1)) + geom_line() + facet_grid(.~Race)
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Let us bring in Race wise composition into Discipline - Hierarchy IV
+
+JJEP_disc <- School_rec1 %>% filter(FirstTier == "Discipline") %>% group_by(ThirdTier,Race,Economic) %>% summarise(dissum = sum(as.numeric(Normrace)))
+
+#JJEP_disc$Month <- factor(JJEP_disc$Month,month.name)
+
+# Visualisation
+
+q3 <- ggplot(JJEP_disc,aes(ThirdTier,dissum,color = Race,group=1)) + geom_line() + facet_grid(Economic~Race)
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+  
+
+
+
+
+
+```
+
+1. Discipline and attendence incidents are heighest during the spring semester compared to the fall semester. For this school it shows a zig-zag trend with the numbers heighest in Jan and then following a zig zag pattern. After the month of October all incidents shows a dip.
+2. From the perspective of number of incidents from a relative scale, the case of both economically advantaged and disadvantaged are the same.
+
+3. If we bring in the perspective of race and economic status together then the trends are kind of mixed. 
+American Indian - Economically advantaged has far lesser number of incidents than economically disadvantaged. However the time period is almost similar
+Asian - The advantaged show more incidents in the Spring season than disadvantaged
+African-American - Even for the African American, the incidents for advantaged and disadvantaged is similar during the Spring season, however during the fall semester the disadvantaged show dominant trends.
+Whites - For whites the disadvantaged show more propensity for incidents in all seasons.
+
+4. Hierarchy 4 : From  a normalised scale, the economically advantaged shows more incidents than the disadvantaged. It kind of peaks in the first two months of the beginning of the spring semester and then it subsides. Then it peaks in October
+
+Excused Absence : The disadvantaged are taking more excused absence from a relative scale. The prevelance of excused absence is more during the month of March. Does this mean some sports season ??
+
+Tardiness : The disadvantaged far outweigh the advantaged in all sense
+
+Unexcused absence :For both advantaged and disadvantaged peaks in April. For disadvantaged it peaks also in October month 
+
+5 . Discipline : Most of the incidence of discipline are just termed as misconduct. The relative proportion from a normalised scale for discipline is more prevelant for the advantaged class.
+
+
+# JMJPFU
+# 14-Oct-2016
+
+Let us now look at a new school and a fresh analysis. 
+
+# School : Cockrell Hill Elementary School
+
+```{r}
+
+JJEP_rec <- Desoto_New %>% filter(SchoolID == "57906107")
+
+# Making a Month and Day variables
+
+JJEP_rec$Month <- format(as.Date(as.character(JJEP_rec$Date)),"%B") # Month
+
+JJEP_rec$Day <- format(as.Date(as.character(JJEP_rec$Date)),"%a") # Month
+
+JJEP_disc <- Desoto_New %>% filter(SchoolID == "57906007" & FirstTier == "Discipline") %>% group_by(ThirdTier,Economic) %>% summarise(dissum = sum(Normpop))
+
+# Some pictorial representation of data # This representation dosent reveal anythin important
+
+q3 <- ggplot(JJEP_rec,aes(Month,Normpop,color=Economic,group=1)) + geom_point() + facet_grid(FirstTier~.,scales = "free")
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+```
+
+# Grade Level Information
+
+```{r}
+Cockrell_grade <- JJEP_rec %>% filter(FirstTier == "Grade")
+
+# Hierarchy I : Looking accross the subjects on average grades
+
+Cockrell_grade_sub1 <- Cockrell_grade %>% group_by(ThirdTier) %>% summarise(mean(as.numeric(Variable),na.rm=TRUE))
+
+Cockrell_grade_sub1 <- Cockrell_grade_sub1[complete.cases(Cockrell_grade_sub1),]
+colnames(Cockrell_grade_sub1)[2] <- "Variable"
+Cockrell_grade_sub1$Measure <- "Grade"
+
+
+# Let us do some visualisation accross the subjects as to performance in terms of grades
+
+q3 <- ggplot(Cockrell_grade_sub1,aes(ThirdTier,Grade,group=1)) + geom_line()
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+# Let us take the attendence also into this equation and find relationship
+
+Cockrell_attend <- JJEP_rec %>% filter(FirstTier == "Attendence")
+
+Cockrell_attend_sub1 <- Cockrell_attend %>% group_by(FourthTier) %>% summarise(sum(as.numeric(Variable),na.rm=TRUE))
+
+# Adding a new variable for attendence
+
+Cockrell_attend_sub1$Measure <- "Attendence"
+
+colnames(Cockrell_attend_sub1) <- names(Cockrell_grade_sub1)
+
+Cockrell_comb <- rbind(Cockrell_grade_sub1,Cockrell_attend_sub1)
+
+# Let us do some visualisation
+
+q3 <- ggplot(Cockrell_comb,aes(ThirdTier,Variable,color=Measure,group=1)) + geom_point() + geom_line() + facet_grid(Measure~.,scale="free")
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+```
+
+In terms of relationship between attendence and grade here are the trends
+
+
+1. There is high level of attendence issues for the subject 101. The average grades within that subject is not great
+
+2. There isn't any great discernable patterns being manifested with Attendence and grades. Only general trend is that where ever there are high incidents of attendence the grades are not there high up there.
+
+3. In terms of grades - Subjects 49101 & 39101 have the highest average grades : Subjects : 159251,29501 and 39501 have the lowest grades.
+
+4. In terms of attendence, TSDSATT has the highest incidents of  attendence. The next higher ones are 101,201 and 301.
+
+# Grades and Economic condition.
+
+Let us ask this question as to whether there are some subjects which shows average grade difference with respect to economic conditions.
+
+```{r}
+Cockrell_grade_sub1 <- Cockrell_grade %>% group_by(Economic,ThirdTier) %>% summarise(mean(as.numeric(Variable),na.rm=TRUE))
+
+Cockrell_grade_sub1 <- Cockrell_grade_sub1[complete.cases(Cockrell_grade_sub1),]
+
+colnames(Cockrell_grade_sub1)[3] <- "Variable"
+
+# Let us do some visualisations
+
+q3 <- ggplot(Cockrell_grade_sub1,aes(ThirdTier,Variable,color = Economic,group=1)) + geom_line() + geom_point()+ facet_grid(Economic~.)
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+```
+
+Most of the trends for both economically advantaged and disadvantaged are almost similar. Some of the major deviations are in the following subjects. 
+
+1. 301 - Economically disadvantaged score much better than econimically advantaged. 
+2. 159351 - The same trend continues where economically disadvantaged are much better off that the advantaged.
+
+# Grades - Economic - Race.
+
+Let us try to bring all these perspectives together
+
+```{r}
+
+Cockrell_grade_sub1 <- Cockrell_grade %>% group_by(Race,Economic,ThirdTier) %>% summarise(mean(as.numeric(Variable),na.rm=TRUE))
+
+Cockrell_grade_sub1 <- Cockrell_grade_sub1[complete.cases(Cockrell_grade_sub1),]
+
+colnames(Cockrell_grade_sub1)[4] <- "Variable"
+
+# Let us do some visualisations
+
+q3 <- ggplot(Cockrell_grade_sub1,aes(ThirdTier,Variable,color = Economic,group=1)) + geom_line() + geom_point()+geom_smooth(method = "lm")+ facet_grid(Economic~Race)
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+```
+
+The three perspectives of Race, Economic and grades gives a very intersting trends.
+
+# General Trends
+
+1. The variability in marks of the Black-African American race is the lowest for both advantaged and disadvantaged classes. 
+2. Eventhough Asians have seen to have taken less of courses, their grade achievement is much higher than the other races.
+3. The absolute variability is the highest for the advantaged American-Indian. They are the ones which touches the lowest grades the most. 
+
+```{r}
+# Let us get a better view of each races
+
+Cockrell_grade_sub2 <- Cockrell_grade_sub1 %>% filter(Race == "White")
+
+q3 <- ggplot(Cockrell_grade_sub2,aes(ThirdTier,Variable,color = Economic,group=1)) + geom_line() + geom_point()+geom_smooth(method = "lm")+ facet_grid(Economic~Race)
+q3 + theme(axis.text.x=element_text(angle=70,hjust=1))
+
+
+```
+
+
+# Trends for African-Americans
+1. The variability of marks is the lowest for African-Americans. The same is the case for both advantaged and disadvantaged classes.
+2. The mean score achieved by the advantaged classes are little over the disadvantaged classes.
+3. 39101 and 49101 are the subjects where the scores are the best. This is the case for both advantaged and disadvantaged classes.
+4.Econimically advantaged students, relatively fare badly in the following courses : 39501,29501 & 19251. However for the disadvantaged students the respective low scoring subjects are 159251,29501 & 201.
+5.159251 is particularly low scoring for disadvantaged however the advantaged tend to be better in this subject
+# Trends for Whites
+1. The variability of marks for whites is bit more than that of African-American. The mean of the marks for all the subjects are a bit higher than the African-American for the economically advantaged sections.
+2. The mean marks achieved by advantaged is higher than the disadvantaged class
+3.39401,39101 & 19301 are the most scoring subjects for the advantaged. 49101,39101 & 19301 are the most scoring for the disadvantaged classes.
+4. 
+
+```{r}
+# Taking back up
+
+Desoto_New_back <- Desoto_New
+```
+

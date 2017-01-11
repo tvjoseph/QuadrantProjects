@@ -1,0 +1,4 @@
+"0","bindata$Bin <- factor(bindata$Bin,levels = c(""bin_1_20"",""bin_20_40"",""bin_40_60"",""bin_60_80"",""bin_80_100"",""bin_100_150"",""bin_150_200"",""bin_200_300"",""bin_300_400"",""bin_400_500"",""bin_500_600"",""bin_600_700"",""bin_700_800"",""bin_800_900"",""bin_900_1000"", ""bin_1000_1324""))"
+"0","bindata2$Bin <- factor(bindata2$Bin,levels = c(""bin_1_20"",""bin_20_40"",""bin_40_60"",""bin_60_80"",""bin_80_100"",""bin_100_150"",""bin_150_200"",""bin_200_300"",""bin_300_400"",""bin_400_500"",""bin_500_600"",""bin_600_700"",""bin_700_800"",""bin_800_900"",""bin_900_1000"", ""bin_1000_1324""))"
+"0","q3 <- ggplot(data=bindata,aes(Bin,Value,color=Variable,group=1)) + geom_point() + geom_line() + facet_grid(Variable~.,scales = ""free"")"
+"0","q3 + theme(axis.text.x=element_text(angle=70,hjust=1))"

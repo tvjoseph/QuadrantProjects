@@ -1,0 +1,3 @@
+"0","### Second Bin"
+"0","bin_30 <- stud_grade %>% filter(Variable >= 20 & Variable < 30) %>% select(SecondTier) %>% mutate(cou = 1) %>% group_by(SecondTier) %>% summarise(cou = sum(cou))"
+"0","ggplot(data = bin_30,aes(SecondTier,cou,color=SecondTier)) + geom_bar(stat = ""identity"", width = 0.2, position = ""dodge"") + ggtitle(""20-30"")"

@@ -1,0 +1,29 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1479378621826.000,
+    "dirty" : false,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "CC7322BA",
+    "lastKnownWriteTime" : 1479376092,
+    "last_content_update" : 1479378621826,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "cacheKey" : "C1494A9C",
+        "caption" : "Discipline_template",
+        "contentUrl" : "grid_resource/gridviewer.html?env=&obj=Discipline_template&cache_key=C1494A9C",
+        "displayedObservations" : 60,
+        "environment" : "",
+        "object" : "Discipline_template",
+        "preview" : 0,
+        "totalObservations" : 60,
+        "variables" : 2
+    },
+    "relative_order" : 11,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_dataframe"
+}

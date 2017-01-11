@@ -1,0 +1,3 @@
+"0","# Tenth bin"
+"0","bin_top <- stud_grade %>% filter(Variable > 60) %>% select(SecondTier) %>% mutate(cou = 1) %>% group_by(SecondTier) %>% summarise(cou = sum(cou))"
+"0","ggplot(data = bin_top,aes(SecondTier,cou,color=SecondTier)) + geom_bar(stat = ""identity"", width = 0.2, position = ""dodge"") + ggtitle(""Bin_Top"")"
