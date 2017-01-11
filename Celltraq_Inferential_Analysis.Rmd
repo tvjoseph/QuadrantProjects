@@ -1,0 +1,801 @@
+---
+title: "Celltraq_Inferential_Analysis"
+author: "Quadrant-4 Team"
+date: "19 September 2016"
+output: html_document
+---
+
+This document elicits the inferential studies done on the Midtronics Stationary Division data.
+
+```{r}
+
+head(All_discharge)
+
+```
+
+Let us consolidate with respect, to the unique IDs which are the batteries and take the standard deviation of all the readings, to find those batteries with the heighest SD. This is required to find the variance of the conductance readings. For those batteries who has the the largest variance we will analyse the same further.
+
+Let us look at the summary level of the data and maybe remove outliers if it exist
+
+```{r}
+
+summary(All_discharge$Conductance)
+summary(All_discharge$Conductance_High_Warning)
+
+range(as.numeric(as.character(All_discharge$Conductance_High_Warning)),na.rm = TRUE)
+
+mean(Cond_SD$Mean)
+
+```
+
+There are some very high values which possibly are outliers. Need to eliminate such values. Let us try a filter and see those values
+
+```{r}
+
+filt1 <- All_discharge %>% filter(Conductance > 10000)
+
+```
+
+There are around 47 values which are larger than 10,000. Let us eliminate those values which are above 10,000
+
+```{r}
+
+filt1 <- All_discharge %>% filter(Conductance < 10000)
+
+```
+
+
+```{r}
+library(dplyr)
+library(caret)
+library(ggplot2)
+
+#
+
+
+
+Cond_SD <- filt1 %>% group_by(Unique_ID) %>% summarise(SD = sd(Conductance,na.rm=TRUE),Var=var(Conductance,na.rm=TRUE),Mean = mean(Conductance,na.rm=TRUE))
+
+# Also preprocessing the conductance variable with scaling
+
+preproc <- preProcess(All_discharge$Conductance,method=c("scale")) # not working for now. Let us leave this at this
+
+
+```
+
+Let us do some plots and identify some of the batteries with high values of SD
+
+```{r}
+
+q1 <- ggplot(data=Cond_SD,aes(Unique_ID,SD)) + geom_point()
+
+q1 + theme(axis.text.x = element_text(angle=70,hjust=1))
+
+```
+
+From the look of the cases where the SD is greater than 250. These could be cases where the variance is higher.
+
+```{r}
+
+filt2 <- Cond_SD %>% filter(SD > 200)
+
+# Lets plot
+
+
+q <- ggplot(data=filt2,aes(Unique_ID,SD)) + geom_point()
+
+q + theme(axis.text.x = element_text(angle=70,hjust=1))
+
+
+```
+
+Let us first take the case where the SD is more than 700 and see how it fares
+
+```{r}
+
+Cond_SD %>% filter(SD > 700)
+
+# "5C662FAB-6334-49BF-9A08-1BB9F44AA9F6"
+
+```
+
+Let us take the case of this battery and observe the behaviour accross the days
+
+
+
+```{r}
+
+filt3 <- filt1 %>% filter(Unique_ID == "5C662FAB-6334-49BF-9A08-1BB9F44AA9F6")
+
+# Lets create a date variable
+
+filt3$Date <- as.Date(as.character(filt3$Measurement_Timestamp))
+
+# Let us do some plotting as per date
+
+q2 <- ggplot(data=filt3,aes(Date,Conductance)) + geom_point()
+q2+ theme(axis.text.x = element_text(angle=90,hjust = 1))
+
+```
+
+Its only in 2013 that all these anomolous behaviours is happening. Let us see for 2013, what really happened 
+
+```{r}
+
+filt4 <- filt3 %>% filter(Date < "2013-03-20"& Date > "2012-09-30" & Conductance < 20000 )
+
+
+
+# Creating a Posixct object
+
+filt4$dedate <- as.POSIXct(as.character(filt4$Measurement_Timestamp))
+
+filt4$dedate <- as.character(filt4$dedate)
+
+# Creating a plot
+
+# For creating an abline
+
+q2 <- ggplot(data=filt4,aes(dedate,Conductance)) + geom_point()+ geom_abline(intercept = 4000) 
+
+# For creating a line connecting all points. Note put group = 1 to get this
+
+q2 <- ggplot(data=filt4,aes(dedate,Conductance,group=1)) + geom_point()
+q2 + geom_line() + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+# For creating a smooth line with 
+
+q2 <- ggplot(data=filt4,aes(dedate,Conductance,group=1)) + geom_point()
+q2 + geom_smooth() + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+```
+
+So from the graphs we can see that this battery displays some anomolous values between 2012- December and 2013 February.
+
+
+
+
+Let us now observe another battery and look for anomolous behaviours
+
+# Battery with values > 600 by less than 700
+
+
+Let us first take the case where the SD is more than 700 and see how it fares
+
+```{r}
+
+Cond_SD %>% filter(SD > 600 & SD < 700) %>% select(Unique_ID)
+
+# "1BB0B287-453B-4123-9DA5-AF6F6596B28F"
+# "5F47EE46-50C4-4A8A-8CAC-C483A7AEA880"
+
+```
+
+Let us take the case of this battery and observe the behaviour accross the days
+
+```{r}
+
+filt3 <- All_discharge %>% filter(Unique_ID %in% c("1BB0B287-453B-4123-9DA5-AF6F6596B28F","5F47EE46-50C4-4A8A-8CAC-C483A7AEA880"))
+
+# Lets create a date variable
+
+filt3$Date <- as.Date(as.character(filt3$Measurement_Timestamp))
+
+# Let us do some plotting as per date
+
+q2 <- ggplot(data=filt3,aes(Date,Conductance,color=Unique_ID)) + geom_point() + facet_grid(.~Unique_ID)
+q2 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=90,hjust = 1))
+
+# Let us do some plotting as per Measurement time
+
+q3 <- ggplot(data=filt3,aes(Measurement_Timestamp,Conductance,color=Unique_ID)) + geom_point() + facet_grid(.~Unique_ID)
+q3 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+
+```
+
+Both these batteries show quite a lot of degradation in terms of conductance. Battery "1BB0B287-453B-4123-9DA5-AF6F6596B28F" shows a steady degradation accross years and Battery "5F47EE46-50C4-4A8A-8CAC-C483A7AEA880" shows a rapid degradation and then a upward trend. This could mean that the battery was replaced. Let us look at the second battery a bit closer.
+
+```{r}
+
+filt4 <- filt3 %>% filter(Unique_ID == "5F47EE46-50C4-4A8A-8CAC-C483A7AEA880")
+
+# Let us do some plotting as per Measurement time
+
+q4 <- ggplot(data=filt4,aes(Measurement_Timestamp,Conductance)) + geom_point()
+q4 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+```
+
+From the above graph, the degradation of this battery also starts from 2012 December and it extends to 2013 Feb and then extends to 2014 August. There seems to be a period of time when no readings were taken. 
+
+Let us check out the second data set also
+```{r}
+
+filt4_II <- All_discharge_II %>% filter(Unique_ID == "5F47EE46-50C4-4A8A-8CAC-C483A7AEA880")
+
+# This data set does not have information pertaining to the above battery.
+```
+
+Let us take a closer look at the period from 2012 December to 2014 August
+
+```{r}
+
+filt4_II <- filt4 %>% filter(Date > "2012-11-20" & Date < "2014-11-20" )
+
+# Plotting the same
+
+q5 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance)) + geom_point()
+q5 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+# Taking a closer look at the degradation start point
+
+filt4_II <- filt4_II %>% filter(Date > "2012-11-20" & Date < "2013-03-01" )
+
+q6 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance,group=1)) + geom_point()
+q6 + geom_line() + theme(axis.text.x = element_text(angle=70,hjust = 1))
+```
+
+So as seen in this, prior to the gradual degradation of the battery there was a zig-zag pattern seen in the conductance reading for this battery too. Also a point to note is that the degradation started in December of 2012
+
+Let us now look at the other battery from the 2 we selected with high SD
+
+```{r}
+filt4 <- filt3 %>% filter(Unique_ID == "1BB0B287-453B-4123-9DA5-AF6F6596B28F")
+
+# Let us do some plotting as per Date ( Linear line appears)
+
+q4 <- ggplot(data=filt4,aes(Date,Conductance)) + geom_point()
+q4 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+# Let us do some plotting as per Measurement time stamp
+
+q4 <- ggplot(data=filt4,aes(Measurement_Timestamp,Conductance)) + geom_point()
+q4 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+```
+
+For this battery the gradual degradation in conductance happens from Jan 2012. However the degradation slope gets steeper from 2012 September to around 2013 February.
+
+Again there is a common thread here of dates between 2012 Sept to 2013 Feb
+
+# Battery with values > 500 but less than 600
+
+Let us first take the case where the SD is more than 700 and see how it fares
+
+```{r}
+
+Cond_SD %>% filter(SD > 500 & SD < 600) %>% select(Unique_ID)
+
+# 054A7AD2-3658-42DD-98D0-454AC2EA3148
+# 11E51D42-5518-4649-A989-3BABDA09FD85
+# 2F83C61C-2D65-45B2-ABF4-B48409BB5EA5
+# 42E2FA79-F71B-4A36-A15F-CBB1700E9A6A
+# F226E690-A1D7-4E8A-B02A-E468EC078BC5
+
+
+```
+
+Let us take the case of this battery and observe the behaviour accross the days
+
+```{r}
+
+filt3 <- All_discharge %>% filter(Unique_ID %in% c("054A7AD2-3658-42DD-98D0-454AC2EA3148","11E51D42-5518-4649-A989-3BABDA09FD85","2F83C61C-2D65-45B2-ABF4-B48409BB5EA5","42E2FA79-F71B-4A36-A15F-CBB1700E9A6A","F226E690-A1D7-4E8A-B02A-E468EC078BC5"))
+
+# Lets create a date variable
+
+filt3$Date <- as.Date(as.character(filt3$Measurement_Timestamp))
+
+# Let us do some plotting as per date
+
+q2 <- ggplot(data=filt3,aes(Date,Conductance,color=Unique_ID)) + geom_point() + facet_grid(.~Unique_ID)
+q2 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=90,hjust = 1))
+
+# Let us do some plotting as per Measurement time
+
+q3 <- ggplot(data=filt3,aes(Measurement_Timestamp,Conductance,color=Unique_ID)) + geom_point() + facet_grid(.~Unique_ID)
+q3 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+
+```
+
+So from the plots of these 5 batteries it can be seen that, there is some pattern evolving.
+
+Battery 1,2,3 and 5 show a degradation graph. Battery 4 is only a case of an outlier measurement and therefore it can be ignored. 
+
+The 4 batteries where there is a pattern evolving have a very similar pattern of degradation. Need to take these and explore further to find out if they are similar to the ones observed earlier
+
+So let us look closely at battery 1 first
+
+```{r}
+
+filt4 <- filt1 %>% filter(Unique_ID == "054A7AD2-3658-42DD-98D0-454AC2EA3148")
+
+filt4$Date <- as.Date(as.character(filt4$Measurement_Timestamp))
+
+# Let us plot and see the graphs
+
+q7 <- ggplot(data=filt4,aes(Measurement_Timestamp,Conductance)) + geom_point()
+q7 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+```
+
+Let us take a closer look at the period from 2013 May onwards
+
+```{r}
+
+filt4_II <- filt4 %>% filter(Date > "2013-05-01" )
+
+# Plotting the same
+
+q8 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance)) + geom_point()
+q8 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+# Taking a closer look at the degradation start point
+
+filt4_II <- filt4_II %>% filter(Date > "2014-11-01" & Date < "2015-03-01" )
+
+q8 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance,group=1)) + geom_point()
+q8 + geom_line() + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+
+
+```
+
+So from the graphs it can be see that the start of degradation is from End of November and the it continues to around February the following year.
+
+Battery # 2 
+
+
+
+```{r}
+filt4 <- filt1 %>% filter(Unique_ID == "11E51D42-5518-4649-A989-3BABDA09FD85")
+
+filt4$Date <- as.Date(as.character(filt4$Measurement_Timestamp))
+
+# Let us plot and see the graphs
+
+q9 <- ggplot(data=filt4,aes(Measurement_Timestamp,Conductance)) + geom_point()
+q9 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+# Taking a closer look at the dates
+
+
+filt4_II <- filt4 %>% filter(Date > "2014-10-01" )
+
+# Plotting the same
+
+q10 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance,group=1)) + geom_point()
+q10 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+# Plotting the trends
+
+q11 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance,group=1)) + geom_point()
+q11 + geom_line() + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+
+
+```
+
+This battery also has very similar trend as the earlier battery with the degradation happening from December and then failure point occuring in Feb and continuing till March
+
+Battery # 3 of this lot
+
+```{r}
+
+filt4 <- filt1 %>% filter(Unique_ID == "2F83C61C-2D65-45B2-ABF4-B48409BB5EA5")
+
+filt4$Date <- as.Date(as.character(filt4$Measurement_Timestamp))
+
+# Let us plot and see the graphs
+
+q12 <- ggplot(data=filt4,aes(Measurement_Timestamp,Conductance)) + geom_point()
+q12 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+# Taking a closer look at the dates
+
+
+filt4_II <- filt4 %>% filter(Date > "2013-11-15" & Date < "2014-09-15" )
+
+# Plotting the same
+
+q13 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance,group=1)) + geom_point()
+q13 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+# Plotting the trends
+
+q13 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance,group=1)) + geom_point()
+q13 + geom_line() + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+
+
+
+```
+
+Again this battery degradation happened in Jan 2014 and then the big drop happened by April 2014 and this down ward trend continues till July 2014
+
+Battery # 5
+
+```{r}
+
+filt4 <- filt1 %>% filter(Unique_ID == "F226E690-A1D7-4E8A-B02A-E468EC078BC5")
+
+filt4$Date <- as.Date(as.character(filt4$Measurement_Timestamp))
+
+# Let us plot and see the graphs
+
+q14 <- ggplot(data=filt4,aes(Measurement_Timestamp,Conductance)) + geom_point()
+q14 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+# Taking a closer look at the dates
+
+
+filt4_II <- filt4 %>% filter(Date > "2014-10-01"  )
+
+# Plotting the same
+
+q15 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance,group=1)) + geom_point()
+q15 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+# Plotting the trends
+
+q15 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance,group=1)) + geom_point()
+q15 + geom_line() + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+
+```
+
+Even in this battery the trend is similar to all other batteries. The flux starts by October and then degradation happens by Jan and then culminates in the big drop by Feb and then it continues.
+
+# Batteries between 400 and 500
+
+
+
+```{r}
+
+Cond_SD %>% filter(SD > 400 & SD < 500) %>% select(Unique_ID)
+
+# # 0124308E-E6E8-4AE7-ABBE-E56561FE8CC0
+# 2  11E1F01B-39CA-41FC-AF37-863543C1A427
+# 3  14525931-DD65-4E15-A1C6-C1AF1588B9FC
+# 4  21CACF45-93A9-40BC-9298-3987DD1881F8
+# 5  2567A348-2E85-4C54-B24E-C69D3F85ACF3
+# 6  2E108B85-4D21-4A29-8947-0A9CE5033354
+# 7  3BA11CF9-EACA-4AA8-A77F-4DF23B29AAAB
+# 8  58CC8861-5D3C-4987-9DFF-F27042E5C1DF
+# 9  59B5DC3C-D5C3-4E1C-BC48-B7901E4D58FF
+# 10 62CF70F0-2B7A-4AB1-9197-B3E1F760C4C2
+# 11 863790DC-B158-4AA5-8C5C-B7644D6911A2
+# 12 889DC298-B847-4926-BBA6-4641C0E27D1A
+# 13 AD3A7E81-5915-453C-BF32-61D8890A0C31
+# 14 B1FE80C1-C000-4775-9EAE-DA4FB922524C
+# 15 BFFE4264-0469-4EDB-A52C-DFFD8B5F3159
+# 16 CF6432BD-8444-4D5E-838A-3B7315624036
+# 17 CFB86713-5A6C-45A4-A100-94F26C060203
+# 18 F5E62AD0-F697-471C-A433-3E9BD167FDC5
+# 19 F8CBFC2A-5592-4B02-AF78-BFB926E940B6
+# 20 FFFA4203-0579-42C9-A05A-38565BA92628
+
+
+```
+
+There are 20 cases between these ranges. Let us just take a sample of 5 and check them
+
+```{r}
+
+filt3 <- filt1 %>% filter(Unique_ID %in% c("0124308E-E6E8-4AE7-ABBE-E56561FE8CC0","11E1F01B-39CA-41FC-AF37-863543C1A427","14525931-DD65-4E15-A1C6-C1AF1588B9FC","21CACF45-93A9-40BC-9298-3987DD1881F8","2567A348-2E85-4C54-B24E-C69D3F85ACF3","2E108B85-4D21-4A29-8947-0A9CE5033354","3BA11CF9-EACA-4AA8-A77F-4DF23B29AAAB","58CC8861-5D3C-4987-9DFF-F27042E5C1DF","59B5DC3C-D5C3-4E1C-BC48-B7901E4D58FF","62CF70F0-2B7A-4AB1-9197-B3E1F760C4C2","863790DC-B158-4AA5-8C5C-B7644D6911A2","889DC298-B847-4926-BBA6-4641C0E27D1A","AD3A7E81-5915-453C-BF32-61D8890A0C31","B1FE80C1-C000-4775-9EAE-DA4FB922524C","BFFE4264-0469-4EDB-A52C-DFFD8B5F3159","CF6432BD-8444-4D5E-838A-3B7315624036","CFB86713-5A6C-45A4-A100-94F26C060203","F5E62AD0-F697-471C-A433-3E9BD167FDC5","F8CBFC2A-5592-4B02-AF78-BFB926E940B6","FFFA4203-0579-42C9-A05A-38565BA92628"))
+
+# Lets create a date variable
+
+filt3$Date <- as.Date(as.character(filt3$Measurement_Timestamp))
+
+# Let us do some plotting as per date
+
+q2 <- ggplot(data=filt3,aes(Date,Conductance,color=Unique_ID)) + geom_point() + facet_grid(.~Unique_ID)
+q2 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=90,hjust = 1))
+
+# Let us do some plotting as per Measurement time
+
+q3 <- ggplot(data=filt3,aes(Measurement_Timestamp,Conductance,color=Unique_ID)) + geom_point() + facet_grid(.~Unique_ID)
+q3 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+
+```
+
+From the above graphs almost 14 of the 20 is showing trends similar to the ones observed before. Let us look at how each one fare with respect to the trends we saw earlier
+
+```{r}
+
+filt4 <- filt1 %>% filter(Unique_ID == "CFB86713-5A6C-45A4-A100-94F26C060203")
+
+filt4$Date <- as.Date(as.character(filt4$Measurement_Timestamp))
+
+# Let us plot and see the graphs
+
+q14 <- ggplot(data=filt4,aes(Measurement_Timestamp,Conductance)) + geom_point()
+q14 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+# Taking a closer look at the dates
+ & Date < "2014-12-01" 
+
+filt4_II <- filt4 %>% filter(Date > "2014-08-01")
+
+# Plotting the same
+
+q15 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance,group=1)) + geom_point()
+q15 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+# Plotting the trends
+
+q15 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance,group=1)) + geom_point()
+q15 + geom_line() + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+
+```
+
+# Battery 3 - Degradation initiation : 2014 - Dec : Sharp failure - 2015 - Mid Jan and Feb : Most of fluxes : During preceeding winters
+
+# Battery 4 - Degradation initiation : 2014 - Dec : Sharp failure - 2015 - Mid Jan and Feb : Most of fluxes : During preceeding winters
+
+# Battery 6 - Degradation initiation : 2014 - Nov : Sharp failure - 2015 - Mid Jan and Feb : Most of fluxes : During preceeding winters : Plant - A, String : 2, Battery - 1
+
+# Battery 7 - Degradation initiation : 2013 - June : Sharp failure - No: Mild failure- 2014 - Mid Oct: Most of fluxes : During preceeding winters : Plant - 1043, String : A, Battery - 2
+
+# Battery 8 - Degradation initiation : 2014 - Feb : Sharp failure - 2014 - Sept: : Most of fluxes : NA : Plant - A1 - A4 POS, String : A3 POS, Battery - 14
+
+# Battery 9 - Degradation initiation : 2014 - Dec : Sharp failure - 2015 Mid Jan - Feb : : Most of fluxes : During preceeding winters : Plant - A, String : 2, Battery - 13
+
+So the trend is very similar and commonalities in terms of Months and most of the parameters.
+
+## 
+
+# Battery 20 - Degradation initiation : 2014 - Nov : Sharp failure - 2015 - Mid Jan and Feb : Most of fluxes : During preceeding winters : Plant - A, String : 2, Battery - 10
+
+# Battery 17 - Degradation initiation : 2014 - Nov : Sharp failure - 2015 - Mid Jan and Feb : Most of fluxes : During preceeding winters : Plant - A, String : 2, Battery - 3
+
+
+# Batteries between 200 and 400
+```{r}
+
+
+temp <- Cond_SD %>% filter(SD > 200 & SD < 400) %>% select(Unique_ID)
+
+# Take a sample of 10 each
+
+samp1 <- sample(temp$Unique_ID,10,replace=FALSE)
+
+# Printing 10 at a time
+
+for(i in 1:10) {
+
+te <- paste(samp1[i])
+
+print(te)
+  
+}
+
+# "9B32480B-C1AD-4AEE-9B0E-4711AA504D2C"
+# "6D6A27CD-354F-492E-B1B4-70AE5E91646D"
+# [1] "D97C8C06-F617-4DD2-AA8E-B4F2D93921F9"
+# [1] "8AC54B72-75C5-4D8D-B59B-31DBF36D9BC9"
+# [1] "7A63305E-3EA5-4F10-A84F-8F788F91C4EE"
+# [1] "FF232DF9-CB5F-466D-B1B7-7C1CE324D204"
+# [1] "53ABC311-DD77-4769-A279-803FE61CC0EB"
+# [1] "A8FC24B2-B405-443C-A057-73F443F17EC2"
+# [1] "00AB6F4B-6517-4546-B852-A2CDF4DCAAF0"
+# [1] "9F75D7E7-A32A-4C32-AFCD-4E00482E3D1D"
+
+
+```
+
+
+```{r}
+
+filt3 <- filt1 %>% filter(Unique_ID %in% c("AB96615A-2073-4807-9641-8E3979B59AF6","968DC5CD-A30C-40A4-9A87-C31B4C6CA2AB","1B399EC5-A1E6-4958-89FD-A27B374E58B0","F08538A6-C820-42E8-99BA-B61E9F6DFC3A","78D9B67A-3DB2-4018-BC21-01DDFE6DFC31","9B32480B-C1AD-4AEE-9B0E-4711AA504D2C","E81D0E6C-4C5C-4069-B947-BF50831BCFED","8AC54B72-75C5-4D8D-B59B-31DBF36D9BC9","ED527921-15FD-456A-BA48-FD72944C22C7","50972473-90CA-4181-90A8-A6D794658B40"))
+
+# Lets create a date variable
+
+filt3$Date <- as.Date(as.character(filt3$Measurement_Timestamp))
+
+# Let us do some plotting as per date
+
+q2 <- ggplot(data=filt3,aes(Date,Conductance,color=Unique_ID)) + geom_point() + facet_grid(.~Unique_ID)
+q2 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=90,hjust = 1))
+
+# Let us do some plotting as per Measurement time
+
+q3 <- ggplot(data=filt3,aes(Measurement_Timestamp,Conductance,color=Unique_ID)) + geom_point() + facet_grid(.~Unique_ID)
+q3 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+
+```
+
+
+
+
+```{r}
+
+filt4 <- filt1 %>% filter(Unique_ID == "50972473-90CA-4181-90A8-A6D794658B40")
+
+filt4$Date <- as.Date(as.character(filt4$Measurement_Timestamp))
+
+# Let us plot and see the graphs
+
+q14 <- ggplot(data=filt4,aes(Measurement_Timestamp,Conductance)) + geom_point()
+q14 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+# Taking a closer look at the dates
+ & Date < "2014-12-01" 
+
+filt4_II <- filt4 %>% filter(Date > "2014-08-01")
+
+# Plotting the same
+
+q15 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance,group=1)) + geom_point()
+q15 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+# Plotting the trends
+
+q15 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance,group=1)) + geom_point()
+q15 + geom_line() + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+
+```
+
+So as seen we see a failing trend in cases where the SD is over 400 and from 200 to 400 we see a falling trend which would indicate an impending failure.
+
+Next task is to connect these failing trends with other variables in the conductance
+
+# Feature Engineering ideas
+
+Let us create two variables by looking at the conductance trend
+
+1. Represent the SD
+2. Create a number by subtracting the conductace from the previous date conductance and finally a total summation. A negative number will show a falling trend and thereby will be candidates for concern
+3. Month wise look ahead slopes of drop or rise to get some indications on the failure of batteries.
+
+# Bringing in other variables
+
+Before doing more feature engineering, let us look at how the other variables square up for the same batteries who show huge variations and SD
+
+Let us first take a list of all unique Ids which are more than 200 of SD and then create a new data set for those IDs and observe their behaviour in terms of voltage
+
+```{r}
+library(dplyr)
+
+Battery_200 <- Cond_SD %>% filter(SD > 200) %>% select(Unique_ID,SD)
+
+Battery_200 <- Battery_200 %>% arrange(desc(SD))
+
+# Taking the voltage data of the first Battery which showed the largest variation
+
+tempid <- paste(Battery_200$Unique_ID[24:28])
+
+# 
+
+tempfilt <- Battery_discharge2 %>% filter(Unique_ID == tempid[1])
+
+filt5 <- data.frame(matrix(nrow=0,ncol=12))
+colnames(filt5) <- colnames(Battery_discharge)
+
+filt5 <- rbind(filt5,tempfilt)
+
+filt5$Date <- as.Date(as.character(filt5$Measurement_Timestamp))
+
+# Comparison with another ID
+
+filt6 <- data.frame(matrix(nrow=0,ncol=12))
+colnames(filt6) <- colnames(Battery_discharge)
+
+
+tempid <- paste(Battery_200$Unique_ID[4:8])
+
+for(i in 1:length(tempid)){
+  
+tempfilt <- Battery_discharge %>% filter(Unique_ID == tempid[3])
+filt6 <- rbind(filt6,tempfilt)
+tempfilt <- Battery_discharge1 %>% filter(Unique_ID == tempid[3])
+filt6 <- rbind(filt6,tempfilt)
+tempfilt <- Battery_discharge2 %>% filter(Unique_ID == tempid[3])
+filt6 <- rbind(filt6,tempfilt)
+  
+}
+
+
+
+
+
+filt6$Date <- as.Date(as.character(filt6$Measurement_Timestamp))
+
+```
+
+Lets do some plotting and see how the Voltage has fluctuated over time.
+
+```{r}
+library(ggplot2)
+
+q14 <- ggplot(data=filt5,aes(Measurement_Timestamp,Voltage,color=Unique_ID)) + geom_point()
+q14 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1)) + facet_grid(.~Unique_ID)
+
+
+q15 <- ggplot(data=filt6,aes(Date,Voltage,color = Unique_ID)) + geom_point()
+q15 + geom_smooth() + theme(axis.text.x = element_text(angle=70,hjust = 1)) + facet_grid(.~Unique_ID)
+```
+
+
+```{r}
+filt4 <- data.frame(matrix(nrow=0,ncol=15))
+
+colnames(filt4) <- colnames(filt4_II[1:15])
+
+for(i in 1:length(tempid)){
+  
+tempfilt <- filt1 %>% filter(Unique_ID == tempid[i])
+
+filt4 <- rbind(filt4,tempfilt)
+}
+
+
+filt4$Date <- as.Date(as.character(filt4$Measurement_Timestamp))
+
+# Let us plot and see the graphs
+
+q14 <- ggplot(data=filt4,aes(Date,Conductance,color=Unique_ID)) + geom_point()
+q14 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1)) + facet_grid(.~Unique_ID)
+
+# Taking a closer look at the dates
+ & Date < "2014-12-01" 
+
+filt4_II <- filt4 %>% filter(Date > "2014-08-01")
+
+# Plotting the same
+
+q15 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance,group=1)) + geom_point()
+q15 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+# Plotting the trends
+
+q15 <- ggplot(data=filt4_II,aes(Measurement_Timestamp,Conductance,group=1)) + geom_point()
+q15 + geom_line() + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+
+```
+
+Are we seeing a trend where the variance of voltage is high when the conductance is not varying much ?
+
+Is there an inverse relationship between variance of conductance and variance of voltage ?
+
+# Relationship between Temperature and the failing batteries
+
+```{r}
+
+tempid <- paste(Battery_200$Unique_ID[2:6])
+
+# 
+
+tempfilt <- Battery_voltemp %>% filter(Unique_ID == tempid[5]) # 4 not available
+
+filt7 <- data.frame(matrix(nrow=0,ncol=20))
+colnames(filt7) <- colnames(Battery_voltemp)
+
+filt7 <- rbind(filt7,tempfilt)
+
+
+
+```
+
+Let us do some initial plotting on this data
+
+```{r}
+filt7$Date <- as.Date(as.character(filt7$Measurement_Timestamp))
+
+# Let us plot and see the graphs
+
+library(ggplot2)
+
+q14 <- ggplot(data=filt7,aes(Date,Temperature,color=Unique_ID)) + geom_point()
+q14 + geom_smooth(method="lm") + theme(axis.text.x = element_text(angle=70,hjust = 1)) + facet_grid(.~Unique_ID)
+
+
+
+```
+

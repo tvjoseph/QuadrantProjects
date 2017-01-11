@@ -1,0 +1,331 @@
+---
+title: "Cleaning_Experimenting"
+author: "Quadrant-4 Team"
+date: "23 August 2016"
+output: html_document
+---
+
+## JMJPFU
+
+This file is to try cleaning the Celltraq file
+
+### Merging the various files
+The first task we will do is to try merging all the files. Before merging we need to understand the number of uniqe IDs which are there and the commonalities accross all the files.
+
+
+Experiment 1 : 
+
+In this experiment we only take the Unique IDs and then append a new column to it naming it which file it comes from
+
+
+```{r}
+library(dplyr)
+
+unique1 <- Vod_bat_discharge %>% select(Unique_ID,Plant_Name,Battery_no,Measurement_Timestamp,Voltage,Current)
+temp1 <- unique(unique1$Unique_ID)
+unique1$file1 <- "Bat_discharge"
+
+unique2 <- Vodafone.Battery.Conductance %>% select(Unique_ID,Plant_Name,Battery_no,Measurement_Timestamp,Conductance)
+
+temp2 <- unique(unique2$Unique_ID)
+unique2$file2 <- "Bat_vt"
+
+
+unique3 <- Vod_bat_vt %>% select(Unique_ID,Plant_Name,Battery_no,Measurement_Timestamp,Voltage,Temperature)
+temp2 <- unique(unique2$Unique_ID)
+unique2$file2 <- "Bat_vt"
+
+unique4 <- Vod_string_discharge %>% select(Unique_ID,Plant_Name,Measurement_Timestamp,Voltage,Current,Manufacturer,Model,Battery_Type)
+
+unique5 <- Vod_string_measurement %>% select(Unique_ID,Plant_Name,Measurement_Timestamp,Voltage,Temperature,Current,Ripple_current,Manufacturer,Model,Battery_Type)
+
+```
+
+Let us leave the above for now and then try merging two data sets with three variables Uniqe ID, Plant and date
+
+```{r}
+
+Mrg_1 <- merge(unique1,unique2,by=c("Unique_ID","Measurement_Timestamp","Plant_Name"),all=TRUE)
+
+colnames(Mrg_1)[4:8] <- c("Battery_discharge","Volt_discharge","Curr_discharge","Battery_cond","Conductance")
+
+Mrg_2 <- merge(Mrg_1,unique3,by=c("Unique_ID","Measurement_Timestamp","Plant_Name"),all=TRUE)
+
+```
+
+Let me do some testing if there are rows with merging of values
+
+```{r}
+
+temp1 <- Mrg_2 %>% filter(Battery_discharge == "Battery 18"|Battery_cond=="Battery 18"|Battery_no=="Battery 18")
+
+```
+There are instances where the same battery is used for various purposes.
+
+Lets continue
+
+```{r}
+
+names(Mrg_2)
+
+colnames(Mrg_2)[9:11] <- c("Battery_vt","Volt_vt","Temp_vt")
+
+Mrg_3 <- merge(Mrg_2,unique4,by=c("Unique_ID","Measurement_Timestamp","Plant_Name"),all=TRUE)
+
+names(Mrg_3)
+
+colnames(Mrg_3)[12:16] <- c("Volt_stdis","curr_stdis","Manufacturer_stdis","Model_stdis","Battype_stdis")
+
+Mrg_4 <- merge(Mrg_3,unique5,by=c("Unique_ID","Measurement_Timestamp","Plant_Name"),all=TRUE)
+```
+
+Now that all the merging is done, let us now get a consolidated data set
+
+```{r}
+
+Vod_consol <- Mrg_4 %>% select(Unique_ID,Measurement_Timestamp,Plant_Name)
+
+# Now to get the Battery No for all the cases
+
+Vod_consol$Battery_no <- NA
+
+
+for(i in 101:nrow(Vod_consol)){
+  
+  if(!is.na(Mrg_4[i,4])){Vod_consol[i,4] <-paste(Mrg_4[i,4]) }
+     else{
+       
+       if(!is.na(Mrg_4[i,7])){Vod_consol[i,4] <-paste(Mrg_4[i,7]) }
+       else{
+         
+         if(!is.na(Mrg_4[i,9])){Vod_consol[i,4] <-paste(Mrg_4[i,9]) }
+       } # End of second inner loop
+       
+       
+     } # End of first Else condition
+  
+  print(i)
+} # End of For loop
+
+
+```
+
+The loop above is taking for ever. We will go loop by loop and see if this is fast
+
+```{r}
+
+for(i in 111401:nrow(Vod_consol)){
+  
+  if(!is.na(Mrg_4[i,4])){Vod_consol[i,4] <-paste(Mrg_4[i,4]) }
+     
+} # End of For loop
+
+
+```
+
+JMJPFU
+6 Sept 2016
+
+As a new approach, let us take small subsets of the data and then do the above loop to merge the files
+
+Let us take the first test case
+
+```{r}
+
+New_mrg <- rbind(New_mrg,mrg_41)
+
+mrg_41 <- subset(Vod_consol[5000001:5492750,])
+Mrg_4_sub <- subset(Mrg_4[5000001:5492750,])
+cou <- 1
+
+# Starting the for loop
+
+for(i in 1:nrow(mrg_41)){
+  
+  if(!is.na(Mrg_4_sub[i,4])){mrg_41[i,4] <-paste(Mrg_4_sub[i,4]) }
+     else{
+       
+       if(!is.na(Mrg_4_sub[i,7])){mrg_41[i,4] <-paste(Mrg_4_sub[i,7]) }
+       else{
+         
+         if(!is.na(Mrg_4_sub[i,9])){mrg_41[i,4] <-paste(Mrg_4_sub[i,9]) }
+       } # End of second inner loop
+       
+       
+     } # End of first Else condition
+  
+  print(i)
+  
+  
+} # End of For loop
+
+```
+
+Let us take a dip stick evaluation
+
+```{r}
+
+library(dplyr)
+
+Mrg_4 %>% filter(Unique_ID=="1535BB08-293C-42A7-BEAA-254A7F74819C"&Measurement_Timestamp=="2014-07-26 00:04:06.000") %>% select(Battery_discharge,Battery_cond,Battery_vt)
+
+
+mrg_41 %>% filter(Unique_ID=="0FCBDC81-D4AB-4BF2-87F9-888071A850BD"&Measurement_Timestamp=="2015-06-09 20:43:14.000") %>% select(Battery_no)
+
+sampe <- Mrg_4 %>% filter(Unique_ID=="13EBB00C-EB3A-486A-8143-8BB8581ABF8F") %>% select(Battery_discharge,Battery_cond,Battery_vt)
+
+
+sampe2 <- mrg_41 %>% filter(Unique_ID=="13EBB00C-EB3A-486A-8143-8BB8581ABF8F") %>% select(Battery_no)
+
+```
+
+# JMJPFU
+15-9-2016
+
+Let us cbind all the data into one
+
+```{r}
+
+newsubset <- Mrg_4[,5:13] 
+
+New_mrg_back <- New_mrg # Taking a backup
+
+New_mrg <- cbind(New_mrg,newsubset)
+
+# Removing the unwanted columns of batteris
+
+New_mrg$Battery_cond <- NULL
+
+New_mrg$Battery_vt <- NULL
+
+
+```
+
+I accidently changed the battery_cond value from factor to numeric. This has to be changed back to factor by copying from the same column as New_mrg
+
+#JMJPFU
+# 19 Sept 2016
+
+From today we will first upload the conductance data and then look for trends within this dataset
+
+```{r}
+
+# Reading in data
+
+All_discharge <- read.csv("C:/Customers/Celltraq/Celltraq_CSV_DATA/Celltraq_CSV_DATA/By Type/Battery Conductance I.csv",sep="|",header=FALSE)
+
+All_discharge_II <- read.csv("C:/Customers/Celltraq/Celltraq_CSV_DATA/Celltraq_CSV_DATA/By Type/Battery Conductance II.csv",sep="|",header=FALSE)
+
+
+
+# Cleaning the first record
+
+All_discharge[1,1] <- "92C81F0F-251E-4E28-9541-0C3E9FBBCC71"
+
+All_discharge_II[1,1] <- "6C6F3E57-53FC-4215-9162-60A85CEBBAFD"
+
+All_discharge_consol <- rbind(All_discharge,All_discharge_II)
+
+# Naming the variables
+
+colnames(All_discharge) <- names(Vodafone.Battery.Conductance[1:15])
+
+colnames(All_discharge_II) <- names(Vodafone.Battery.Conductance[1:15])
+
+```
+
+# Getting in other variables also
+
+```{r}
+filename <- list.files(path = "C:/Customers/Celltraq/Celltraq_CSV_DATA/Celltraq_CSV_DATA/By Type/Loader")
+
+
+for(i in 1:length(filename)){
+  
+  temppath <- paste0("C:/Customers/Celltraq/Celltraq_CSV_DATA/Celltraq_CSV_DATA/By Type/Loader/",filename[i])
+  
+  temp_discharge <-  read.csv(temppath,sep="|",header=FALSE)
+  temp_discharge[1,1] <- paste(temp_discharge[2,1])
+  colnames(temp_discharge) <- colnames(Vod_bat_discharge)[1:12]
+  Battery_discharge2 <- rbind(Battery_discharge2,temp_discharge)
+  
+  
+}
+
+
+
+
+temp_discharge <-  read.csv("C:/Customers/Celltraq/Celltraq_CSV_DATA/Celltraq_CSV_DATA/By Type/Battery Discharge XIII.csv",sep="|",header=FALSE)
+
+temp_discharge[1,1] <- paste(temp_discharge[2,1])
+
+colnames(temp_discharge) <- colnames(Vod_bat_discharge)[1:12]
+
+Battery_discharge1 <- rbind(Battery_discharge1,temp_discharge)
+
+
+##########################
+Battery_discharge2 <- data.frame(matrix(nrow=1,ncol= 12))
+colnames(Battery_discharge2) <- colnames(Vod_bat_discharge)[1:12]
+
+
+Battery_discharge <- rbind(Battery_discharge,temp_discharge)
+
+#################
+
+Battery_discharge <- read.csv("C:/Customers/Celltraq/Celltraq_CSV_DATA/Celltraq_CSV_DATA/By Type/Battery Discharge VIII.csv",sep="|",header=FALSE)
+
+# Cleaning the first record
+
+Battery_discharge[1,1] <- "2CCFFB47-FFC2-4824-B9CB-0A0228259C93"
+
+# Renaming the variables
+
+colnames(Battery_discharge) <- colnames(Vod_bat_discharge)[1:12]
+
+# Lets check for the first battery which had problems
+
+"5C662FAB-6334-49BF-9A08-1BB9F44AA9F6"
+
+temp <- Battery_discharge %>% filter(Unique_ID == "0124308E-E6E8-4AE7-ABBE-E56561FE8CC0")
+
+# Initial check on the voltage
+
+q2 <- ggplot(data=temp,aes(Measurement_Timestamp,Voltage,group=1)) + geom_point()
+q2 + geom_smooth() + theme(axis.text.x = element_text(angle=70,hjust = 1))
+
+
+```
+
+From Tomorrow, start a new variable to load the voltage data
+
+# JMJPFU
+# 22-Sept-2016
+
+Now to load the Temperature data and see the behaviours
+
+```{r}
+
+
+Battery_voltemp1 <- data.frame(matrix(nrow=0,ncol= 20))
+colnames(Battery_voltemp1) <- colnames(Vod_bat_vt)[1:20]
+
+filename <- list.files(path = "C:/Customers/Celltraq/Celltraq_CSV_DATA/Celltraq_CSV_DATA/By Type/Loader")
+
+
+for(i in 1:length(filename)){
+  
+  temppath <- paste0("C:/Customers/Celltraq/Celltraq_CSV_DATA/Celltraq_CSV_DATA/By Type/Loader/",filename[i])
+  
+  temp_voltemp <-  read.csv(temppath,sep="|",header=FALSE)
+  temp_voltemp[1,1] <- paste(temp_voltemp[2,1])
+  colnames(temp_voltemp) <- colnames(Vod_bat_vt)[1:20]
+  Battery_voltemp1 <- rbind(Battery_voltemp1,temp_voltemp)
+  
+  
+}
+
+
+
+```
+
