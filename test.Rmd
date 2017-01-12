@@ -1,0 +1,113 @@
+---
+title: "R Notebook"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+JMJPFU
+7-Nov-2016
+
+Let us first explore the data set and do some merging of the data
+
+```{r}
+library(dplyr)
+```
+Let us merge both the data set to form one single data by the loan number
+
+```{r}
+colnames(Transaction_Data_GMF)[1] <- "loannumber"
+
+loan_combined <- merge(Transaction_Data_GMF,Loan_Level_Data_GMF,by = "loannumber")
+
+names(loan_combined)
+
+```
+
+```{r}
+loan_combined$mtDaysDelinquent
+
+length(unique(loan_combined$loannumber))
+
+```
+```{r}
+names(loan_combined)
+```
+JMJPFU
+16-Nov-2016
+
+Cleaning up the Moodys data. Eliminating the extra columns
+
+```{r}
+Data_20new_20funding <- Data_20new_20funding[,1:78]
+```
+# JMJPFU
+# 22-Nov-2016
+
+This iteration is to take some relevant dates from the original file which were not in the proper order in the first data set
+
+```{r}
+Dates <- Dates[,35:38]
+
+Dates$MATURITYDATE[Dates$MATURITYDATE=="NULL"] <- NA
+
+
+format(as.Date(as.numeric(COSB_expl1$MATURITYDATE[1]),origin="1970-01-01")) # Did not work
+
+```
+Reloaded the data again
+
+```{r}
+format(as.Date(COSB_expl1$MATURITYDATE[1]))
+
+Date_df <- Dates[,35:38]
+
+Date_df$MATURITYDATE[Date_df$MATURITYDATE=="NULL"] <- NA
+Date_df$NEXTDUEDATE[Date_df$NEXTDUEDATE=="NULL"] <- NA
+Date_df$GRACENEXTDUEDATE[Date_df$GRACENEXTDUEDATE=="NULL"] <- NA
+Date_df$THEORETICALDUEDATE[Date_df$THEORETICALDUEDATE=="NULL"] <- NA
+# Testing some conversion
+format(as.Date(Dates$MATURITYDATE[25]),origin="1970-01-01") # Dosent work
+
+# The below function works. We have to provide the format in which the date originally existed in the DF
+
+as.Date(Dates$MATURITYDATE[25],format="%m/%d/%Y")
+
+Dates$MATURITYDATE[25]
+
+```
+Let us try on the DF
+
+```{r}
+Date_df$MATURITYDATE <- as.Date(Date_df$MATURITYDATE,format="%m/%d/%Y")
+
+Date_df$NEXTDUEDATE <- as.Date(Date_df$NEXTDUEDATE,format="%m/%d/%Y")
+
+Date_df$GRACENEXTDUEDATE <- as.Date(Date_df$GRACENEXTDUEDATE,format="%m/%d/%Y")
+Date_df$THEORETICALDUEDATE <- as.Date(Date_df$THEORETICALDUEDATE,format="%m/%d/%Y")
+
+# For other data frame also
+
+Dates$MATURITYDATE <- as.Date(Dates$MATURITYDATE,format="%m/%d/%Y")
+
+Dates$NEXTDUEDATE <- as.Date(Dates$NEXTDUEDATE,format="%m/%d/%Y")
+
+Dates$GRACENEXTDUEDATE <- as.Date(Dates$GRACENEXTDUEDATE,format="%m/%d/%Y")
+Dates$THEORETICALDUEDATE <- as.Date(Dates$THEORETICALDUEDATE,format="%m/%d/%Y")
+
+# Some more dates to be formated
+
+Dates$ORIGCONTRACTDATE <- as.Date(Dates$ORIGCONTRACTDATE,format="%m/%d/%Y")
+
+
+```
+Lets change the names of the dataframe
+
+```{r}
+Moodys <- Dates
+
+rm(Dates)
+
+rm(Date_df)
+```
+

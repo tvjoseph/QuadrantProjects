@@ -1,0 +1,105 @@
+---
+title:JMJPFU: "Moodys-Optimization Problem "
+output: html_notebook
+Date: 10-Nov-2016
+---
+This notebook describes the analytics process for solving the optimization problem at Moodys.
+
+
+# Step 1 : Selecting the relevant variables
+
+The initial number of variables were around 400. We need to narrow them down to what is relevant from the perspective of data completeness. A list of variables have been arrived at. We need to start our analysis from this set of 64 variables.
+
+```{r}
+
+library(dplyr)
+
+# First list of most relevant variables
+
+Relevant_Columns$X1 
+
+loan_df <- loan_combined %>% select(Dealname,Poolname,loannumber,AddedDate ,            VintageDate ,                      LoanNumber ,                      
+ mtABSStatus  ,                     mtABSStatusGroup   ,               mtAccountStatus  ,                
+mtAccrualType   ,                  mtAccruedInterest  ,               mtActualRemainingTerm ,           
+mtActualSeasoning ,                mtAmountFinanced  ,                mtAPR    ,                        
+mtAssetClass ,                     mtAssetStatus  ,                   mtBalloonAmountCalc ,             
+mtBranchCode  ,                    mtCollateralType  ,                mtCollateralYear   ,              
+mtCustomerId ,                     mtDaysDelinquent    ,              mtDiscountRateApplied ,           
+mtFinancedDepositAllowance,        mtFirstPaymentDueAMT  ,            mtInitialPayment   ,              
+mtInterestAmount  ,                mtInterestEarned  ,                mtLastpaymentAMT ,                
+mtLoanToValue   ,                  mtLTVCalc   ,                      mtMake     ,                      
+mtMaturingPaymentAMT   ,           mtModel       ,                    mtMonthlyPayment   ,              
+mtNetLiquidationProceeds  ,        mtNetLossAmount    ,               mtNewUsedFlag   ,                 
+mtOriginalBalance   ,              mtOriginalPrincipalBalance    ,    mtOriginalUnearned  ,             
+mtPayment       ,                  mtPostCode    ,                    mtPotLoss   ,                     
+mtPrincipalAmount    ,             mtPurchasePrice    ,               mtRecoveries  ,                   
+mtScheduledBalance    ,            mtScheduledPaymentNumber  ,        mtScheduledSeasoning ,            
+ mtTotalNumberOfPayment  ,          mtTotalPayment   ,                 mtTotalPaymentMTD   ,             
+mtVIN  ,                           mtPastDueAmount  ,                 mtCbalAdj   ,                     
+mtScottishFlag ,                   mtNetInterest  ,                   mtNetRecoveries ,                 
+mtNorthernIrishFlag   ,            mtPrincipalCollection  ,           mtPrincipalCollectionUndiscounted,
+mtPIFCollectionUndiscounted)
+
+
+```
+
+
+```{r}
+head(loan_df)
+```
+```{r}
+loan_df$AddedDate <- loan_df$VintageDate <- loan_df$LoanNumber <- loan_df$mtAccrualType <- loan_df$mtAccruedInterest <- loan_df$mtAssetClass <- NULL
+```
+
+Some critical perspectives of variables which can be looked at are
+1. mtABSStatus : It gives some categories of loans which are Normal , Delinquent etc : 7 classes available in this category
+2. mtABSStatusGroup : 3 classes, somewhat related to the earlier one.
+
+
+# First kind of analysis. : Pool with respect to average delinquency.
+
+The performance of a pool can be assessed by connecting the delinquency with a pool. We will have to see if the expected delinquency is consumerate with the the risk associated with a pool.
+
+Some variables that can be tested out would be
+
+1. mtDaysDelinquent
+2. mtPoolname
+
+```{r}
+pool_del1 <- loan_df %>% group_by(Poolname) %>% summarise(Avgdel = mean(mtDaysDelinquent,na.rm=TRUE))
+```
+
+So it can be seen that 
+
+ECARAT PLC : Has no delinquncy & ECARAT2 PLC has delinquency rate of upto 77. The unsold UK should be the list of loans which are unsold because of higher risk. For these loans the delinquency rates are higher.
+
+Let us closely look at the ECARAT2 PLC pool and study some of its salient features
+
+```{r}
+pool_del1 <- loan_df %>% filter(Poolname == "ECARAT2 PLC")
+
+table(pool_del1$mtDaysDelinquent)
+
+```
+# JMJPFU
+# 11-Nov-2016
+
+Let us now work on the new data set which we have got from the delinquency perspective
+
+```{r}
+pool_del1 <- Random_Data_20k_Records %>% group_by(Poolname) %>% summarise(Avgdel = mean(mtDaysDelinquent,na.rm=TRUE))
+
+pool_del1$Avgdel <- round(pool_del1$Avgdel,digits=2)
+
+```
+
+Let us look at some visualisation of the delinquency rates and study the behaviour
+
+```{r}
+library(ggplot2)
+
+q1 <- ggplot(data=pool_del1,aes(Poolname,Avgdel,color=Avgdel,group=1)) + geom_point()+geom_line()
+q1 + theme(axis.text.x=element_text(angle=70,hjust=1))+theme(axis.text.x = element_text(size = 10)) 
+
+```
+Let us also look at the mapping of pool to deal and vice versa

@@ -1,0 +1,1077 @@
+---
+JMJPFU: "Moodys Sample Data Exploratory Analysis"
+output: html_notebook
+---
+
+This notebook is to represent the initial exploration of Moody's Sample Data.
+
+1. Looking at the classes of the variables and its distribution
+
+```{r}
+sapply(Data_20new_20funding,class)
+```
+
+So a mix of numeric, Posixct and character variables are found here.
+
+2. Looking at the summary level of the data 
+
+```{r}
+summary(Data_20new_20funding)
+```
+
+3. Let us also look at the standard deviation of each of the numeric attributes in the dataset
+
+```{r}
+sapply(Data_20new_20funding,sd)
+```
+
+4. Let us look at some histograms for each of the data element
+
+```{r}
+
+#,42:47,50 ,12:31,35:40
+
+for(i in c(4:10)){
+  
+  hist(Data_20new_20funding[,i],main=names(Data_20new_20funding)[i])
+  
+}
+
+
+```
+```{r}
+
+
+
+library(lattice)
+
+Data_20new_20funding <- data.frame(Data_20new_20funding)
+str(iris[,4])
+hist(Data_20new_20funding[,4])
+
+```
+```{r}
+#,42:47,50 ,12:31,35:40
+
+for(i in c(12:33)){
+  
+  hist(Data_20new_20funding[,i],main=names(Data_20new_20funding)[i])
+  
+}
+```
+```{r}
+library(dplyr)
+library(ggplot2)
+
+```
+Let us now start with some initial exploration of the data for Moodys
+
+# Current outstanding balance :  Remaining term
+
+Let us look at cases where there is current outstanding and the remaining term is 0. This could indicate cases where people have not been able to close their existing loan even after the end of their tenure. 
+
+```{r}
+
+COSB_expl1 <- Data_20new_20funding %>% filter(CURRENTOSB > 0 & REMAININGTERM ==0)
+
+```
+
+There are around 268 records. 
+
+Let us look at the outstanding value ranges and also as % of original value
+1. Outstanding value ranges
+2. Outstanding value as % of original value
+
+```{r}
+# Ranges of current outstanding balance
+
+range(COSB_expl1 %>% select(CURRENTOSB))
+
+# Calculating outstanding value 
+
+range(COSB_expl1 %>% mutate(per_out = (CURRENTOSB/ORIGINALBALANCE)*100) %>% select(per_out))
+
+# How many cases have Days past due
+
+nrow(COSB_expl1 %>% filter(DAYSPASTDUE > 0))
+
+# Comparison of the credit scores
+
+mean(as.numeric(COSB_expl1$ORIGCREDITSCORE),na.rm = TRUE)
+mode(as.numeric(COSB_expl1$ORIGCREDITSCORE))
+range(as.numeric(COSB_expl1$ORIGCREDITSCORE),na.rm = TRUE)
+
+
+mean(as.numeric(Data_20new_20funding$ORIGCREDITSCORE),na.rm = TRUE)
+mode(Data_20new_20funding$ORIGCREDITSCORE)
+range(as.numeric(Data_20new_20funding$ORIGCREDITSCORE),na.rm = TRUE)
+
+# Comparison of scheduled balance with original balance
+
+nrow(COSB_expl1 %>% mutate(schdev = SCHEDBAL - CURRENTOSB) %>% filter(schdev < 0))
+
+# Introducing the 79th variable
+nrow(Data_20new_20funding %>% mutate(schdev = SCHEDBAL - CURRENTOSB) %>% filter(schdev < 0))
+
+# Comparison of the scheduled balance to COB 
+
+Data_20new_20funding %>% mutate(schdev = SCHEDBAL - CURRENTOSB) %>% filter(schdev < 0) %>% summarise(mean(DAYSPASTDUE,na.rm=TRUE))
+
+Data_20new_20funding %>% mutate(schdev = SCHEDBAL - CURRENTOSB) %>% filter(schdev > 0) %>% summarise(mean(DAYSPASTDUE,na.rm=TRUE))
+
+
+COSB_expl1 %>% mutate(schdev = SCHEDBAL - CURRENTOSB) %>% filter(schdev < 0) %>% summarise(mean(DAYSPASTDUE,na.rm=TRUE))
+
+COSB_expl1 %>% mutate(schdev = SCHEDBAL - CURRENTOSB) %>% filter(schdev > 0) %>% summarise(mean(DAYSPASTDUE,na.rm=TRUE))
+
+# Irregular account indicator
+
+nrow(Data_20new_20funding %>% filter(IRREGACCTIND==1))
+
+Data_20new_20funding %>% filter(IRREGACCTIND==1) %>% summarise(mean(DAYSPASTDUE,na.rm=TRUE))
+
+Data_20new_20funding %>% filter(IRREGACCTIND!=1) %>% summarise(mean(DAYSPASTDUE,na.rm=TRUE))
+
+
+COSB_expl1 %>% filter(IRREGACCTIND==1) %>% summarise(mean(DAYSPASTDUE,na.rm=TRUE))
+
+COSB_expl1 %>% filter(IRREGACCTIND!=1) %>% summarise(mean(DAYSPASTDUE,na.rm=TRUE))
+
+
+
+
+```
+
+Ranges of Outstanding is mostly less than 1% and its not significant. Another significant thing which can be checked is how many of the loans are pre-closed.
+
+1. Original Contract date + Original term > Current date : This it is prepayment. Can look at how many days of prepayment has it done ?
+2. Looking at ranges of Days past due where Remaining term is 0. How can this happen ?? : ranges 0 and 332 , mean 8.14
+3. Are there any original loss balances in these cases ? : No none of them 
+4: How many cases have Days past due dates out of 268 cases : ONly 54 out of 268 have such cases
+5: What is the mean, mode and ranges of the credit scores for this cases and how it compares with the general cases : Not much difference between all these cases
+6: What is the difference between the scheduled balance and actual balance ? If the difference is -ve ( scheduled - actual) it is a concern if comparison with the original balance is significant : Only 19 cases have -ve balance which is only 7%. Need to compare with other general case. For general it is around 12%. That means 12% of cases lag behind in terms of actual repayment. 
+7. Do those cases where the scheduled balance to COB is negative , how does it fare in terms of the Days past due ? : For the filtered data set -ve cases has a mean Days past due as 69 and +ve cases has around 3. For the general cases, -ve cases has around 91 and +ve cases have around 2.68. So the scheduled balance - COB could be a good comparison for delinquency.
+8. Looking at Irregular account indicator flag :
+  Irregular indicator and Days past due dosent mean anything
+  
+# Relationship between the POOl ID and many other variables
+
+Some of the relationship which can be studied are the following
+1. Pool ID v/s delinquncy rates
+2. Pool ID v/s prepayment( Original contract + original term , period left, current balance, current term etc)
+3. Pool ID v/s scheduled balance - current balance
+
+First let us make a variable denoting prepayment
+
+
+```{r}
+Moodys$Prepay_indi <- as.numeric(as.Date(Sys.time()) - Moodys$MATURITYDATE)
+
+```
+Now that this new indicator is made let us do a sample check if there are any records with prepayment.
+
+So the condition would be the following
+1. Prepay_indi < 0
+2. Current OSB == 0
+
+```{r}
+
+prepay_samp <- Moodys %>% filter(Prepay_indi < 0 & CURRENTOSB == 0) # Variable 79
+
+```
+
+There are only 2 records which show prepayment indicator. Let us change the criteria and then look at % of OOB with respect to the original value.
+
+
+
+```{r}
+Moodys$per_out <- ((Moodys$CURRENTOSB / Moodys$ORIGINALBALANCE)*100)
+
+mean(Moodys$per_out,na.rm = TRUE)
+
+```
+```{r}
+prepay_samp <- Moodys %>% filter(Prepay_indi < 0 & per_out < 0.1)
+```
+
+Are there any variables related to Liquidation ?
+
+```{r}
+liq <- Moodys %>% select(contains("Liq"))
+rm(liq)
+```
+No variables which indicates liquidation
+
+Working on two perspectives
+
+1. Binning of the Fico score
+2. Looking at the above perspectives on Pool ID
+
+1. Binning of FIco Score
+
+```{r}
+# Ranges of Fico score
+
+range(Moodys$ORIGCREDITSCORE) # 140 to 271
+
+table(Moodys$ORIGCREDITSCORE)
+```
+
+
+Let us do some plotting with respect to the credit score.
+1. Let us look at how the days past due is varying with respect to the credit score
+
+```{r}
+cred_samp <- Moodys %>% group_by(ORIGCREDITSCORE) %>% summarise(DPD = mean(DAYSPASTDUE,na.rm=TRUE))
+
+# Visualising the same
+
+q1 <- ggplot(data=cred_samp,aes(ORIGCREDITSCORE,DPD,color=DPD,group=1)) + geom_point() + geom_line()
+q1 + theme(axis.text.x = element_text(angle=90,hjust = 1)) + geom_smooth(method = "lm")
+```
+
+A downward trend of DPD with increasing credit score. Which is expected.
+Let us also look at how the Credit score and prepayment is
+
+```{r}
+
+prep_samp <- Moodys %>%filter(per_out < 0.1) %>% group_by(ORIGCREDITSCORE) %>% summarise(DPD = mean(Prepay_indi,na.rm=TRUE))
+
+q1 <- ggplot(data=prep_samp,aes(ORIGCREDITSCORE,DPD,color=DPD,group=1)) + geom_point() + geom_line()
+q1 + theme(axis.text.x = element_text(angle=90,hjust = 1)) + geom_smooth(method = "lm")
+
+```
+
+From the available data it is seen that people with lower credit score are more likely to prepay the loan.
+
+# Checking the perspective of the Pool ID
+
+First check the average days past due for each pool
+
+```{r}
+pool_samp1 <- Moodys %>% group_by(POOLID) %>% summarise(DPD = mean(DAYSPASTDUE,na.rm=TRUE))
+
+# Visualising the same
+
+q1 <- ggplot(data=pool_samp1,aes(POOLID,DPD,color=POOLID,group=1)) + geom_point() + geom_line()
+q1 + theme(axis.text.x = element_text(angle=90,hjust = 1)) + geom_smooth(method = "lm")
+
+```
+Let us look at Pool sample and the propensity to prepay, if such relationship exists.
+
+```{r}
+pool_samp1 <- Moodys %>% filter(per_out < 0.1) %>% group_by(POOLID) %>% summarise(DPD = mean(Prepay_indi,na.rm=TRUE))
+
+# Visualising the same
+q1 <- ggplot(data=pool_samp1,aes(POOLID,DPD,color=POOLID,group=1)) + geom_point() + geom_line()
+q1 + theme(axis.text.x = element_text(angle=90,hjust = 1)) + geom_smooth(method = "lm")
+
+```
+Nothing special in this graph. 
+
+# JMJPFU
+# 24-Nov-2016
+
+Based on the call on 23rd, lets get into an aggregation level of each pool and study its behaviour and also try out some experimentation for doing optimization of the loans which go into a pool.
+
+First we need to select the relevant columns. The relevant columns are the following
+
+(ID,POOLID,STATUS,CURRENTOSB,REMAININGTERM,PRINCIPALBALANCE,APR,DAYSPASTDUE,MAKE,COUNTRY,POSTCODE,STATE,NEWUSEDINDICATOR,ORIGCREDITSCORE)
+
+```{r}
+Moodys_sec <- Moodys %>% select(ID,POOLID,STATUS,CURRENTOSB,REMAININGTERM,PRINCIPALBALANCE,APR,DAYSPASTDUE,MAKE,COUNTRY,POSTCODE,STATE,NEWUSEDINDICATOR,ORIGCREDITSCORE)
+```
+
+Let us look at some more of the given criteria and check out the portfolio. 
+
+Let us do some aggregation of the existing variables and get some intuitions
+
+```{r}
+Moodys_thir <- Moodys_sec %>% group_by(POOLID,STATE) %>% summarise(perc = sum(PRINCIPALBALANCE))
+
+# Taking the aggregated sum for each pool
+
+Tot <- Moodys_thir %>% group_by(POOLID) %>% summarise(prinsum = sum(perc))
+
+# Doing a merge to find the total corresponding to each pool
+
+Moodys_thir <- merge(Moodys_thir,Tot,all.x = TRUE)
+
+# Finding the percentage
+
+Moodys_thir$Prinper <- (Moodys_thir$perc / Moodys_thir$prinsum)*100
+
+Moodys_thir$Prinper <- round(Moodys_thir$Prinper,digits = 2)
+
+# Finding out if any states have more than 20% for any pool
+
+filt1 <- Moodys_thir %>% filter(Prinper > 20)
+
+
+```
+
+Let us also do the same exercise for the make of the car
+
+```{r}
+
+Moodys_four <- Moodys_sec %>% group_by(POOLID,MAKE) %>% summarise(perc = sum(PRINCIPALBALANCE))
+
+# Taking the aggregated sum for each pool
+
+Tot <- Moodys_four %>% group_by(POOLID) %>% summarise(prinsum = sum(perc))
+
+# Doing a merge to find the total corresponding to each pool
+
+Moodys_four <- merge(Moodys_four,Tot,all.x = TRUE)
+
+# Finding the percentage
+
+Moodys_four$Prinper <- (Moodys_four$perc / Moodys_four$prinsum)*100
+
+Moodys_four$Prinper <- round(Moodys_four$Prinper,digits = 2)
+
+# Finding out if any states have more than 20% for any pool
+
+filt2 <- Moodys_four %>% filter(Prinper > 20)
+
+filt2
+
+table(Moodys$MAKE)
+
+# 
+
+```
+```{r}
+table(Moodys$NEWUSEDINDICATOR)
+
+table(Moodys$POOLID)
+```
+Let us now create a function to get the aggregated values at the pool level
+
+```{r}
+mood_rec <- Moodys %>% filter(POOLID == "16-1")
+
+pool1 <- mood_agg(mood_rec)
+
+mood_rec <- Moodys %>% filter(POOLID == "3-Oct")
+
+pool2 <- mood_agg(mood_rec)
+
+mood_rec <- Moodys %>% filter(POOLID == "0")
+
+pool3 <- mood_agg(mood_rec)
+
+mood_rec <- Moodys %>% filter(POOLID =="UNSD")
+
+pool4 <- mood_agg(mood_rec)
+
+
+```
+# JMJPFU
+# 25-11-2016
+
+Now that we have made the pool aggregation let us look at the various features and see its distributions.
+
+```{r}
+pool1 %>% filter(FirstTier == "State") %>% arrange(desc(Variable))
+
+pool2 %>% filter(FirstTier == "State") %>% arrange(desc(Variable))
+
+pool3 %>% filter(FirstTier == "State") %>% arrange(desc(Variable))
+
+pool4 %>% filter(FirstTier == "State") %>% arrange(desc(Variable))
+
+```
+
+# JMJPFU
+# 28-Nov-2016
+
+Calculating the deviation scores for each pool and find those pools which have least deviation
+
+```{r}
+
+goal_deviance(pool1,1,1,3,1,1,4) # Values of wt parameters : stwt,mkwt,aprwt,nwt,uwt,crwt
+
+goal_deviance(pool2,1,1,3,1,1,4)
+
+goal_deviance(pool3,1,1,3,1,1,4)
+
+goal_deviance(pool4,1,1,3,1,1,4)
+
+```
+
+Now that we have calculated the deviation score, we need to build an overarching program to take one loan and then compare the actual deviation which has happened because of the introduction of the loan and then find the most optimum pool where the loan will go into
+
+The steps to be followed are the following
+
+1. Benchmark the 
+
+```{r}
+
+# Make a new copy for the Moodys data
+
+Moodys_new <- Moodys
+
+# Divinding the unsold and the sold portfolio
+
+mood_sold <- Moodys %>% filter(POOLID != "UNSD")
+
+sold <- Moodys %>% filter(POOLID != "UNSD")
+
+mood_unsold <- Moodys %>% filter(POOLID =="UNSD") 
+
+unsold <- Moodys %>% filter(POOLID =="UNSD")
+
+# Taking some benchmark values
+
+ bench_pool <- data.frame(matrix(nrow=length(pools),ncol = 3))
+  
+  for(i in 1:length(pools)){
+    
+    bench_pool[i,1] <- paste(pools[i]) # Pasting the label
+    
+    # Taking the records
+    mood_rec <- Moodys %>% filter(POOLID == pools[i]) # Take the relevant records
+    bench_pool[i,2] <- nrow(mood_rec) # Store the nrow values in the second column
+    # taking the pool data
+    Pool <- mood_agg(mood_rec)
+    bench_pool[i,3] <- goal_deviance(Pool,1,1,3,1,1,4) # take a benchmark deviance 
+    
+  }
+ 
+ # Making a empty data frame for storing the latest values
+ 
+  bench_latest <- data.frame(matrix(nrow=length(pools),ncol = 2))
+ 
+ # Starting the comparison loops
+
+for(i in 1:nrow(mood_unsold)){ # First take all the unsold pool one by one
+  
+  ln_samp <- mood_unsold[i,] # Take one loan at a time
+  
+ 
+  pools <- c("16-1","3-Oct","0")
+  
+  # loop through all pools to find the Optimum pool it should go into
+  
+  min_dev <- 0 # Only if there is any deviance in the values we take 
+  pool_sel <- NA # Initialise the pools for which the deviance have to be calculated
+  
+  for(j in 1:length(pools)){
+    mood_rec <- mood_sold %>% filter(POOLID == pools[j]) # Take the first pool
+    bench_latest[j,1] <- paste(pools[j]) # Storing the string name
+    Pool <- mood_agg(mood_rec)
+    bench_latest[j,2] <- goal_deviance(Pool,1,1,3,1,1,4)
+    
+    # Now to check for any deviation
+    new_rec <- rbind(mood_rec,ln_samp)
+    Pool <- mood_agg(new_rec)
+    temp_dev <- goal_deviance(Pool,1,1,3,1,1,4)
+    
+    # Let us look at the deviance
+    diff <- temp_dev - bench_latest[j,2]
+    
+    if(min_dev > diff ){ 
+      min_dev <- diff # Update the min_dev with the latest difference
+      pool_sel <- pools[j]
+      
+      } # End of if loop to update the values
+    
+  } # End of for loop to run over all the pool values
+  
+  # Updating the loan into the pool only in case of any dip in deviance
+  
+  if(!is.na(pool_sel)){
+    
+    ln_samp$POOLID <- pool_sel # Updating the portfolio with the new poolid name
+    mood_sold <- rbind(mood_sold,ln_samp) # Updating the sold portfolio
+  
+  }
+  
+  print(i)
+  
+} # End of the loop to run over all the unsold pool values
+  
+  
+  # Let us run another benchmark counts after the update
+  
+  bench_pool1 <- data.frame(matrix(nrow=length(pools),ncol = 3))
+  
+  for(i in 1:length(pools)){
+    
+    bench_pool1[i,1] <- paste(pools[i]) # Pasting the label
+    
+    # Taking the records
+    mood_rec <- mood_sold %>% filter(POOLID == pools[i]) # Take the relevant records
+    bench_pool1[i,2] <- nrow(mood_rec) # Store the nrow values in the second column
+    # taking the pool data
+    Pool <- mood_agg(mood_rec)
+    bench_pool1[i,3] <- goal_deviance(Pool,1,1,3,1,1,4) # take a benchmark deviance 
+    
+  }
+  
+  bench_comb <- cbind(bench_pool,bench_pool1)
+  names(bench_comb) <- c("Pool","row_pre","score_pre","Pool","row_post","score_post")
+  bench_comb$diff <- bench_comb$row_post - bench_comb$row_pre
+  
+  sum(bench_comb$diff)
+
+```
+
+So from the experiment, the number of records have increased in all the pools. 143 out of the total unsold 281 got allocated. 
+# Next steps
+
+As a next step, we need to play around with the weight parameters in each of the goal deviance updates which we have done. Probably a good idea is to look at the historic data and then learn the parameters which have to go into each of the composite score. This is where we can play around with.
+
+However another perspective which needs to be looked into is, whether the deviance parameters which have been arrived at based on the existing criteria is the best. For this we need to look at deviance from set goals for each of the pools and study variables which contribute most to the optimisation of the pool in question.
+
+# JMJPFU
+# 29-11-2016
+
+In this new approach, we will create a new function which introduces the concept of goal and goal deviance to optimise the portfolio.
+
+
+```{r}
+# Creating the pools data frame
+
+pools <- data.frame(unique(sold$POOLID))
+
+names(pools) <- "PoolID" # Naming the pools
+
+pools$goal <- c(200,200,0) # Setting the goals for each pool
+
+
+
+
+```
+
+
+```{r}
+
+optimised_output <- Pool_optimiser(unsold,sold,pools)
+
+
+
+```
+
+Let us try running the function
+
+```{r}
+
+fin_port <- optimised_output$port
+
+
+optimised_output$finpool
+
+
+
+nrow(fin_port %>% filter(POOLID == pools[1,1]))
+nrow(fin_port %>% filter(POOLID == pools[2,1]))
+nrow(fin_port %>% filter(POOLID == pools[3,1]))
+
+```
+
+```{r}
+(11004 - 10981) + (18971 - 18921) + (200-89)
+```
+
+With my Lords help, the optimisation algorithm seems to be working. Need to find ways to optimise the portfolio.
+
+Let us look at comparing some of the portfolios
+
+```{r}
+pool1_upd <- fin_port %>% filter(POOLID == pools[1,1])
+pool2_upd <- fin_port %>% filter(POOLID == pools[2,1])
+pool3_upd <- fin_port %>% filter(POOLID == pools[3,1])
+
+
+Pool3_upd <- mood_agg(pool2_upd)
+
+
+```
+
+The algorithm at this level seems to be doing some sort of optimisation.
+
+The next task is to learn if the current set of optimisations are the right ones ? What are the best set of optimisations possible which can be learnt from the data.
+
+# Learning the right set of parameters from the data
+
+The following are the kind of optimisations which needs to be learnt from the data
+
+1. Set goals for each portfolio
+2. Look at achievement with respect to goals
+3. Set the optimisation objective and the direction of optimisation
+4. Classify the data with respect to the achievement levels.
+5. Learn specific trends in terms of 
+  a > Which features are important to achieve the goals ?
+  b > In what proportion do these features have to be present ?
+  c > Once the proportion or weights of the features have been learnt how do we get them back into implementation.
+6. Another perspective is the proportion of loans which are considered - "good","bad" and "ugly" in each portfolio
+  a > How do we bring in individual scores for each loan which is aligned to the overall aggregated score of the portfolio ?
+  b > How do we rate individual loans within a portfolio ?
+  c > How do we give an indication on what steps are required to bring in the optimisation ?
+  
+
+## JMJPFU
+# 30-Nov-2016
+
+The next task is to figure out the process of deriving scores for each individual loan aligned to the aggreagated score of the pool.
+
+```{r}
+
+mood_rec <- Moodys %>% filter(POOLID == pools[3,1])
+
+# Filtering out the not relevant cases from this pool before calculating the score
+
+mood_rec2 <- mood_rec %>% filter(CURRENTOSB >= 100 & CURRENTOSB <= 150000) %>% filter(REMAININGTERM > 1) %>% filter(PRINCIPALBALANCE >= 100 & PRINCIPALBALANCE <= 100000)
+
+ Pool <- mood_agg(mood_rec) # Finding the aggregated portfolio
+    
+ poolscore <- goal_deviance(Pool,1,1,3,1,1,4)
+
+```
+
+# JMJPFU
+# 1-Dec-2016
+
+Checking the updated goal deviance
+
+```{r}
+
+poolscore2 <- goal_UPDdeviance(Pool,1,1,3,1,1,4)
+
+pools
+
+```
+
+We have updated the Pool_optimiser after the changes in the goals updation. Let us check this with respect to the output we got after the first run of the optimiser
+
+```{r}
+
+optimised_output <- Pool_optimiser(unsold,fin_port,pools)
+```
+
+Let us get the new data frames
+
+```{r}
+
+fin_port <- optimised_output$port
+
+
+optimised_output$finpool
+
+
+
+nrow(fin_port %>% filter(POOLID == pools[1,1]))
+nrow(fin_port %>% filter(POOLID == pools[2,1]))
+nrow(fin_port %>% filter(POOLID == pools[3,1]))
+
+```
+
+The approach 
+
+```{r}
+pool1_upd <- fin_port %>% filter(POOLID == pools[1,1])
+pool1 <- sold %>% filter(POOLID == pools[1,1])
+
+pool2_upd <- fin_port %>% filter(POOLID == pools[2,1])
+pool2 <- sold %>% filter(POOLID == pools[2,1])
+pool3_upd <- fin_port %>% filter(POOLID == pools[3,1])
+pool3 <- sold %>% filter(POOLID == pools[3,1])
+
+Pool_upd <- mood_agg(pool3_upd)
+Pool1 <- mood_agg(pool3)
+
+```
+
+Testing out the individual score function
+
+
+```{r}
+# Getting the initial data sets
+
+pooldf <- Moodys %>% filter(POOLID == pools[1,1])
+
+poolagg <- mood_agg(pooldf)
+
+poolscore3 <- goal_UPDdeviance(poolagg,1,1,3,1,1,4)
+
+
+```
+
+Calculating the function
+
+```{r}
+pooldf_upd <- ind_deviance(pooldf,poolagg,1,1,3,1,1,4) # pooldf,poolagg,stwt,mkwt,aprwt,nwt,uwt,crwt
+
+```
+
+# JMJPFU
+# 2-Dec-2016
+
+With Lords help the individual scorer function also worked out fine. Today , need to explore and crystallize on the whole deal approach.
+
+First, we need to explore and play around with the optimiser function with various combinations and direction of goals. After that need to find the distribution of good bad and ugly in each loan portfolio.
+
+### Experiment with optimiser function
+
+## Step 1 : Setting the sold and unsold portfolios
+
+```{r}
+
+sold <- Moodys %>% filter(POOLID != "UNSD") # Set of sold portfolios
+
+unsold <- Moodys %>% filter(POOLID =="UNSD") # Set of unsold portfolios
+
+```
+
+
+## Step 2 : Defining the pool parameters ( Setting goals)
+
+```{r}
+
+pools <- data.frame(unique(sold$POOLID))
+
+names(pools) <- "PoolID" # Naming the pools
+
+pools$goal <- c(200,200,0) # Setting the goals for each pool
+
+```
+
+
+## Step 2 : Running the optimiser function and validation of the optimiser
+
+```{r}
+
+optimised_output <- Pool_optimiser(unsold,sold,pools,1,1,3,1,1,4,2) # Passing the portolios and also the weights
+
+fin_port <- optimised_output$port # Getting the portolio data frame after optimising
+
+
+optimised_output$finpool # Getting the summary level pool data to compare before and after scenarios
+
+# Validation steps for each rows
+
+nrow(fin_port %>% filter(POOLID == pools[1,1]))
+nrow(fin_port %>% filter(POOLID == pools[2,1]))
+nrow(fin_port %>% filter(POOLID == pools[3,1]))
+
+```
+
+## Step 3 : Testing the pool to see how the optimisation has worked
+
+```{r}
+
+
+pool_before <- sold %>% filter(POOLID == pools[3,1])
+pool_after <- fin_port %>% filter(POOLID == pools[3,1])
+
+pool_before <- mood_agg(pool_before)
+pool_after <- mood_agg(pool_after)
+
+
+```
+
+## Step 4 : Creating the pooldf, filter,aggregator function & Scoring function
+
+```{r}
+
+pooldf <- sold %>% filter(POOLID == pools[2,1])
+
+# Filtering out the not relevant cases from this pool before calculating the score
+
+pooldf <- pooldf %>% filter(CURRENTOSB >= 100 & CURRENTOSB <= 150000) %>% filter(REMAININGTERM > 1) %>% filter(PRINCIPALBALANCE >= 100 & PRINCIPALBALANCE <= 100000)
+
+ poolagg <- mood_agg(pooldf) # Finding the aggregated portfolio
+ 
+ poolscore <- goal_UPDdeviance(poolagg,1,1,3,1,1,4,2)
+
+```
+
+## Step 5 : Finding the individual distribution of the score and validation of the score
+
+```{r}
+pooldf_upd <- ind_deviance(pooldf,poolagg,1,1,3,1,1,4,2) # pooldf,poolagg,stwt,mkwt,aprwt,nwt,uwt,crwt,dpwt
+
+poolscore1 <- sum(pooldf_upd$indscore,na.rm = TRUE)
+
+```
+
+Let us now look at the distribution of individual scores. These are the things which needs to be studied and verified
+
+1. What is the proportion of good, bad and ugly scores
+2. After receiving the outcomes which are associated, we need to validate all the goals and assumptions. Some of them are the following
+  a. Average scores for good and bad pools
+  b. Proportion of good, bad and ugly loans within the pool for good an bad
+  c. Trends in proportion of state, make, New/old, DPD etc 
+  d. Once trends are studied , the threshold scores should be updated.
+  
+## Visualisation of the scores
+  
+```{r}
+
+range(pooldf_upd$PRINCIPALBALANCE)
+
+library(ggplot2)
+
+q1 <- ggplot(data= pooldf_upd,aes(PRINCIPALBALANCE,indscore)) + geom_point() + theme(axis.text.x=element_text(angle=70,hjust=1))+theme(axis.text.x = element_text(size = 10)) + geom_smooth(method="lm")
+q1
+
+range(pooldf_upd$indscore)
+
+```
+
+Let us look at proportions of scores which belong to good bad and ugly categories.
+
+Since the sum comes to around -35, let us look at values below and above this value
+
+```{r}
+
+pooldf_upd$categories[pooldf_upd$indscore < -100 ] <- "Very Bad"
+
+pooldf_upd$categories[pooldf_upd$indscore > -100 & pooldf_upd$indscore < -35  ] <- "Bad"
+
+pooldf_upd$categories[pooldf_upd$indscore > -35 & pooldf_upd$indscore < 0  ] <- "Average"
+
+pooldf_upd$categories[pooldf_upd$indscore > 0  ] <- "Good"
+
+# Finding the proportions
+
+table(pooldf_upd$categories)
+
+
+```
+
+# JMJPFU
+# 13-12-2016
+
+We will try to analyse the classification methodology and how it fares.
+
+let us store each individual portfolios seperately
+```{r}
+Pool1_dist <- pooldf_upd
+Pool2_dist <- pooldf_upd
+Pool3_dist <- pooldf_upd
+
+```
+Let us also look at the ranges of each of these values
+
+```{r}
+
+range(Pool1_dist$indscore)
+range(Pool2_dist$indscore)
+range(Pool3_dist$indscore)
+
+
+library(ggplot2)
+
+q1 <- ggplot(data= Pool1_dist,aes(PRINCIPALBALANCE,indscore)) + geom_point() + theme(axis.text.x=element_text(angle=70,hjust=1))+theme(axis.text.x = element_text(size = 10)) + geom_smooth(method="lm")
+q1
+
+q2 <- ggplot(data= Pool2_dist,aes(PRINCIPALBALANCE,indscore)) + geom_point() + theme(axis.text.x=element_text(angle=70,hjust=1))+theme(axis.text.x = element_text(size = 10)) + geom_smooth(method="lm")
+q2
+
+q3 <- ggplot(data= Pool3_dist,aes(PRINCIPALBALANCE,indscore)) + geom_point() + theme(axis.text.x=element_text(angle=70,hjust=1))+theme(axis.text.x = element_text(size = 10)) + geom_smooth(method="lm")
+q3
+
+
+```
+
+# JMJPFU
+# 14-Dec-2016
+
+Now to carry out various experiments on the classification part and learning the variables.
+
+# Step:1 : Classification
+
+Let us look at the relative scores and find which pool should have which class
+
+```{r}
+
+sum(Pool1_dist$indscore,na.rm = TRUE)
+sum(Pool2_dist$indscore,na.rm = TRUE)
+sum(Pool3_dist$indscore,na.rm = TRUE)
+
+# Ranges of scores 
+
+```
+
+Pool1 : Good
+Pool2 : Medium
+Pool3: Bad
+
+Score Distribution
+Less than 1 : Bad
+1: 10 : Medium
+> 10 : Good
+
+```{r}
+
+pooldf_upd <- Pool3_dist
+
+pooldf_upd$Port <- "Bad_Portfolio"
+pooldf_upd$categories <- NA
+
+
+pooldf_upd$categories[pooldf_upd$indscore < -1 ] <- "Bad"
+
+pooldf_upd$categories[pooldf_upd$indscore > -1  & pooldf_upd$indscore <= 5  ] <- "Medium"
+
+pooldf_upd$categories[pooldf_upd$indscore > 5  ] <- "Good"
+
+Pool3_dist <- pooldf_upd
+
+Pool3_dist$categories <- as.factor(Pool3_dist$categories)
+Pool3_dist$Port <- as.factor(Pool3_dist$Port)
+
+```
+
+Let us look at the distribution of Good, medium and bad loans in each portfolio
+
+```{r}
+prop.table(table(Pool1_dist$categories))
+
+prop.table(table(Pool2_dist$categories))
+
+prop.table(table(Pool3_dist$categories))
+
+```
+
+Let us now make a test and train set after making a consolidated class
+
+```{r}
+Pool_consol <- rbind(Pool1_dist,Pool2_dist,Pool3_dist)
+
+Pool_consol$class <- paste0(Pool_consol$Port,"-",Pool_consol$categories)
+```
+
+Let us now look at each of the variable and select only those variables which looks promising
+
+```{r}
+i=5
+names(Pool_consol)[i]
+str(Pool_consol[,i])
+hist(as.numeric(Pool_consol$STATUS))
+#table(Pool_consol[,i])
+```
+Now to get the most relevant features 
+
+```{r}
+
+Pre_train <- Pool_consol %>% select(STATUS, CURRENTOSB,REMAININGTERM,PAYMENTMETHOD,ORIGINALBALANCE,ORIGINALTERM,ORIGPRINCIPALBAL,PRINCIPALBALANCE,OTHERAMTFINANCEDTOTAL,CUSTOMERFLATRATE,GMACYIELDRATE,APR,DAYSPASTDUE,EXTENSION,MAKE,MODEL,POSTCODE,STATE,CUSTOMERTYPE,CASHSELLINGPRICE,MSRPPRICE,NEWUSEDINDICATOR,ORIGCREDITSCORE,PAYMENTAMT,SCHEDBAL,LOANAGE,indscore,class)
+
+str(Pre_train)
+
+nrow(Pre_train)
+nrow(Pre_train[complete.cases(Pre_train),])
+
+nrow(Pre_train[is.na(Pre_train$ORIGCREDITSCORE),])
+
+# Removing the NAs in credit score
+
+Pre_train <- Pre_train[complete.cases(Pre_train),]
+
+str(Pre_train$class)
+
+# Converting into factors
+Pre_train$class <- as.factor(Pre_train$class)
+```
+ 
+ We have to make the variable "Make" as a factor
+ 
+ 
+```{r}
+
+Pre_train$MAKE <- as.factor(Pre_train$MAKE)
+```
+
+# JMJPFU
+# 15-Dec-2016
+
+Let us create seperate training sets for each of the three pools and study the variable importance
+
+```{r}
+
+Bad_pool <- Pool3_dist %>% select(STATUS, CURRENTOSB,REMAININGTERM,PAYMENTMETHOD,ORIGINALBALANCE,ORIGINALTERM,ORIGPRINCIPALBAL,PRINCIPALBALANCE,OTHERAMTFINANCEDTOTAL,CUSTOMERFLATRATE,GMACYIELDRATE,APR,DAYSPASTDUE,EXTENSION,MAKE,MODEL,POSTCODE,STATE,CUSTOMERTYPE,CASHSELLINGPRICE,MSRPPRICE,NEWUSEDINDICATOR,ORIGCREDITSCORE,PAYMENTAMT,SCHEDBAL,LOANAGE,indscore,categories)
+
+
+Bad_pool <- Bad_pool[complete.cases(Bad_pool),]
+
+# 
+
+Good_pool$categories <- as.factor(Good_pool$categories)
+Medium_pool$categories <- as.factor(Medium_pool$categories)
+Bad_pool$categories <- as.factor(Bad_pool$categories)
+
+
+```
+
+Let us now remove the indscore and then do the portfolio again
+
+```{r}
+
+Bad_pool <- Pool3_dist %>% select(STATUS, CURRENTOSB,REMAININGTERM,PAYMENTMETHOD,ORIGINALBALANCE,ORIGINALTERM,ORIGPRINCIPALBAL,PRINCIPALBALANCE,OTHERAMTFINANCEDTOTAL,CUSTOMERFLATRATE,GMACYIELDRATE,APR,DAYSPASTDUE,EXTENSION,MAKE,MODEL,POSTCODE,STATE,CUSTOMERTYPE,CASHSELLINGPRICE,MSRPPRICE,NEWUSEDINDICATOR,ORIGCREDITSCORE,PAYMENTAMT,SCHEDBAL,LOANAGE,indscore,categories) # bringing indscore #categories
+
+
+Bad_pool <- Bad_pool[complete.cases(Bad_pool),]
+
+Good_pool <- Pool1_dist %>% select(STATUS, CURRENTOSB,REMAININGTERM,PAYMENTMETHOD,ORIGINALBALANCE,ORIGINALTERM,ORIGPRINCIPALBAL,PRINCIPALBALANCE,OTHERAMTFINANCEDTOTAL,CUSTOMERFLATRATE,GMACYIELDRATE,APR,DAYSPASTDUE,EXTENSION,MAKE,MODEL,POSTCODE,STATE,CUSTOMERTYPE,CASHSELLINGPRICE,MSRPPRICE,NEWUSEDINDICATOR,ORIGCREDITSCORE,PAYMENTAMT,SCHEDBAL,LOANAGE,indscore,categories) # bringing indscore
+
+
+Good_pool <- Good_pool[complete.cases(Good_pool),]
+
+
+Medium_pool <- Pool2_dist %>% select(STATUS, CURRENTOSB,REMAININGTERM,PAYMENTMETHOD,ORIGINALBALANCE,ORIGINALTERM,ORIGPRINCIPALBAL,PRINCIPALBALANCE,OTHERAMTFINANCEDTOTAL,CUSTOMERFLATRATE,GMACYIELDRATE,APR,DAYSPASTDUE,EXTENSION,MAKE,MODEL,POSTCODE,STATE,CUSTOMERTYPE,CASHSELLINGPRICE,MSRPPRICE,NEWUSEDINDICATOR,ORIGCREDITSCORE,PAYMENTAMT,SCHEDBAL,LOANAGE,indscore,categories) # bringing indscore
+
+
+Medium_pool <- Medium_pool[complete.cases(Medium_pool),]
+
+# 
+
+Good_pool$categories <- as.factor(Good_pool$categories)
+Medium_pool$categories <- as.factor(Medium_pool$categories)
+Bad_pool$categories <- as.factor(Bad_pool$categories)
+
+```
+
+# JMJPFU
+# 16-12-2016
+
+Remove categories and introduce Indscore and make the good bad and medium portfolios again
+
+
+Reconsolidating Good , Bad and medium assets to do some learning
+
+```{r}
+
+# Recategorising the assets
+Good_assets <- rbind(Good_pool[Good_pool$categories=="Good",],Medium_pool[Medium_pool$categories=="Good",],Bad_pool[Bad_pool$categories=="Good",])
+
+Medium_assets <- rbind(Good_pool[Good_pool$categories=="Medium",],Medium_pool[Medium_pool$categories=="Medium",],Bad_pool[Bad_pool$categories=="Medium",])
+
+Bad_assets <- rbind(Good_pool[Good_pool$categories=="Bad",],Medium_pool[Medium_pool$categories=="Bad",],Bad_pool[Bad_pool$categories=="Bad",])
+
+# Removing the categories
+
+Good_assets$categories <- Bad_assets$categories <- Medium_assets$categories <- NULL
+
+```
+
+Change the character variables into factors
+
+```{r}
+str(Good_assets)
+
+
+Good_assets$STATUS <- as.factor(Good_assets$STATUS)
+Good_assets$STATE <- as.factor(Good_assets$STATE)
+
+Medium_assets$STATUS <- as.factor(Medium_assets$STATUS)
+Medium_assets$STATE <- as.factor(Medium_assets$STATE)
+
+Bad_assets$STATUS <- as.factor(Bad_assets$STATUS)
+Bad_assets$STATE <- as.factor(Bad_assets$STATE)
+
+
+```
+

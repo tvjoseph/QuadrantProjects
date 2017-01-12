@@ -1,0 +1,394 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+JMJPFU
+14-12-2016
+
+This note book is to do all the activities required for premodelling. This would involve the following
+
+1. Divide into train and test sets
+2. Do cross validation to find the best algorithm
+3. Fine tuning the algorithm
+4. Find the feature importance
+5. Get some intuitions on the list of features
+
+# Dividing into train and test sets
+
+```{r}
+# Loading the required packages
+
+library(mlbench)
+library(caret)
+
+```
+
+Creating the validation dataset
+
+```{r}
+set.seed(7)
+
+validationindex <- createDataPartition(Pre_train$class,p=0.80,list=FALSE) # Creating the index
+
+validation <- Pre_train[-validationindex,] # Creating the validation set
+
+train_set <- Pre_train[validationindex,] # Creating the training set
+
+# Looking at distribution of classes in both validation and trainining sets
+
+prop.table(table(validation$class))*100
+
+prop.table(table(train_set$class))*100
+
+
+```
+
+# Evaluating Algorithms : Baseline
+
+Let us now create the baseline algorithms . Let us try the following linear and non linear algorithms
+
+Linear Algorithms : Logistic regression, Linear Discriminate Analysis, Regularized Logistic Regression
+Nonlinear Algorithms : KNN, CART, Naive Bayes, SVM
+
+Let us do a 10 fold cross validation with 3 repeats.
+
+```{r}
+# This is to set the controlling parameters
+trainSpot <- trainControl(method="repeatedcv",number = 10,repeats = 3)
+metric <- "Accuracy"
+
+```
+
+Lets create our models. We will use the default parameters for each model at this point of time.
+
+```{r}
+set.seed(7)
+
+fit.glm <- train(class~.,data=train_set,method="glm",metric=metric,trControl=trainSpot) # Cant use glm as it can be used only for binary problems
+
+fit.lda <- train(class~.,data=train_set,method="lda",metric=metric,trControl=trainSpot) # Created the model
+
+fit.glmnet <- train(class~.,data=train_set,method="glmnet",metric=metric,trControl=trainSpot) # Check the foot note below. Try SMOTe later
+
+fit.knn <- train(class~.,data=train_set,method="knn",metric=metric,trControl=trainSpot) # Worked
+
+fit.cart <- train(class~.,data=train_set,method="rpart",metric=metric,trControl = trainSpot) # Worked - Fastest of the lot
+
+fit.nb <- train(class~.,data=train_set,method="nb",metric=metric,trControl=trainSpot) # Lot of error in the process. A fit was created
+
+fit.svm <- train(class~.,data=train_set,method="svmRadial",metric=metric,trControl=trainSpot)
+
+# Comparing algorithms
+
+results <- resamples(list(LDA = fit.lda,KNN=fit.knn,CART=fit.cart,NB = fit.nb,SVM=fit.svm)) # Resampling various methods
+
+summary(results) # Summarising the results
+
+dotplot(results) # Plotting the results
+
+```
+
+# Error for lda
+Error for variable 15 as there is no variability in the data. This variable is the make of the vehicle. This variable is an integer. Let us try a first hand by making this variable a factor for all the data sets
+
+Eventhough there were errors about no variability within groups, it might be for specific validation sets. The model was created.
+# Error for glmnet
+
+Probably there was a class which had very few observations. Which has led to the solution not converging.Need to abandon this and try it out with lesser classes and see if it works.
+
+When tried with lesser classes it worked. For the minority classes we can try other methods like SMOTE
+
+
+```{r}
+# Experimentation for glmnet
+
+exp_train <- train_set[train_set$class %in% c("Good_Portfolio-Medium","Medium_Portfolio-Medium"),] # Took a sample with only two labels
+
+exp_train$class <- factor(exp_train$class,labels= c("Good_Portfolio-Medium","Medium_Portfolio-Medium")) # Rechanged the factors
+
+exp_glmnet <- train(class~.,data=exp_train,metric=metric,trControl=trainSpot,method="glmnet")
+
+```
+
+# JMJPFU
+# 15-Dec-2016
+
+From the comparison of results, CART seems to be the best performing algorithm for the push through round. Need to understand more on the accuracy measures especially "Kappa"
+
+# Ensemble methods
+
+Now let us also try some ensemble methods. The below are the ensemble methods which we can try
+
+Bagging  : Bagged CART and Random Forest
+Boosting : Stochastic Gradient Boosting ( GBM)
+
+```{r}
+
+fit.treebag <- train(class~.,data=exp_train,metric=metric,method="treebag",trControl=trainSpot)
+
+
+fit.rf <- train(class~.,data=exp_train,method="rf",metric=metric,trControl=trainSpot)
+
+fit.gbm <- train(class~.,data=exp_train,method="gbm",metric=metric,trControl=trainSpot)
+
+fit.c5 <- train(class~.,data=exp_train,method="C5.0",metric=metric,trControl=trainSpot)
+
+# Getting the comparitive score
+
+ensembleResults <- resamples(list(BAG=fit.treebab,RF=fit.rf,GBM = fit.gbm,C50 = fit.c5))
+summary(ensembleResults)
+```
+# Random Forest problem
+The training was taking too long a time. It was prematurely ended. 
+
+Now let us check other indicators in the model. The following are the things which we need to check.
+1. Relative importance of variables
+2. Any inner proportions within the variables
+3. Methodology for improving the existing metrics based on the new variable importance.
+
+# Check 1 : Variable importance
+
+Using the model fitted with each method
+
+```{r}
+
+varImp(fit.cart)
+#varImp(fit.svm) # Error
+#varImp(fit.nb) # Error
+varImp(fit.treebag)
+#varImp(fit.knn) # Error
+#varImp(fit.lda) # Error
+
+# Another method of getting the variable importance
+
+#filterVarImp(x=train_set[,-28],y=train_set$class)
+
+
+```
+Let us take a different approach in finding the model importance. Let us take each of the individual pool and find the variables which are important in each of the models
+
+```{r}
+
+good.cart <- train(categories~.,data=Good_pool,method="rpart",metric=metric,trControl = trainSpot)
+
+Medium.cart <- train(categories~.,data=Medium_pool,method="rpart",metric=metric,trControl = trainSpot)
+
+Bad.card <- train(categories~.,data=Bad_pool,method="rpart",metric=metric,trControl = trainSpot)
+
+```
+Let us look at the variable importance in each of these pools
+
+```{r}
+varImp(good.cart)
+varImp(Medium.cart)
+varImp(Bad.card)
+
+# Plots
+varImpPlot(Medium.cart)
+```
+Let us also look at Random Forest to generate the variable importance
+
+```{r}
+
+library(randomForest)
+
+bad.rf <- randomForest(categories~.,data=Bad_pool,importance=TRUE,ntree=100,mtry=5)
+
+class(Bad_pool$categories)
+```
+
+# Error in Random Forest
+
+Error in randomForest.default(m, y, ...) : NA/NaN/Inf in foreign function call (arg 1)
+
+One potential reason for this error is because if some variables are characters. Need to try by making these characters as factors
+
+```{r}
+str(Good_pool)
+```
+So as seen, Status, State are charachters. These need to be converted into factors and then tried again
+```{r}
+Good_pool$STATUS <- as.factor(Good_pool$STATUS)
+Good_pool$STATE <- as.factor(Good_pool$STATE)
+
+Medium_pool$STATUS <- as.factor(Medium_pool$STATUS)
+Medium_pool$STATE <- as.factor(Medium_pool$STATE)
+
+Bad_pool$STATUS <- as.factor(Bad_pool$STATUS)
+Bad_pool$STATE <- as.factor(Bad_pool$STATE)
+
+
+```
+
+Carrying out the modelling and finding the variable importance
+
+```{r}
+
+bad.rf <- randomForest(categories~.,data=Bad_pool,importance=TRUE,ntree=100,mtry=5)
+
+good.rf <- randomForest(categories~.,data=Good_pool,importance=TRUE,ntree=100,mtry=5)
+
+medium.rf <- randomForest(categories~.,data=Medium_pool,importance=TRUE,ntree=100,mtry=5)
+
+# Finding the variable importance
+
+varImp(good.rf)
+
+varImp(medium.rf)
+
+varImp(bad.rf)
+
+# Variable importance plots
+
+varImpPlot(good.rf,type = 2)
+
+varImpPlot(medium.rf,type=2)
+
+varImpPlot(bad.rf,type=2)
+
+# Importance measures
+
+importance(good.rf)
+
+varImpPlot(medium.rf)
+
+varImpPlot(bad.rf)
+
+
+```
+
+So from the relative importance we can try to optimise the variables. 
+
+Once the variables are identified, we can also think of find the appropriate metrics for each variable. The way we can do that is by looking at the class distribution of each of the variables and also by looking at the overall distribution of each variable
+
+#Variable  Analysis 1: State
+
+```{r}
+
+# Make a data frame of proportions
+
+Good_state <- data.frame(prop.table(table(Good_pool$STATE)))
+
+Medium_state <- data.frame(prop.table(table(Medium_pool$STATE)))
+
+Bad_State <- data.frame(prop.table(table(Bad_pool$STATE)))
+
+# Now to insert another variable for the quality of pool
+
+Good_state$Qual <- "Good"
+Medium_state$Qual <- "Medium"
+Bad_State$Qual <- "Bad"
+
+All_state <- rbind(Good_state,Medium_state,Bad_State)
+
+# Visualising the same
+
+q1 <- ggplot(All_state,aes(Var1,Freq,group=1,color=Var1)) + geom_point() + geom_line() + facet_grid(Qual~.,scales = "free")+theme(axis.text.x=element_text(angle=70,hjust=1))
+q1
+
+
+```
+So as seen, medium and good profile looks very similar and the bad is quite different from them. Can we infer such proportions 
+
+Learnings
+
+1. Look at Good and medium and difference it from bad and look at ideal proportions of states in the mix.
+2. Whether the 20% mix in states holds good 
+3. Whether it should be raised to some other levels ?
+
+# Tomorrow
+
+1. Look at inferring the proportions from other Variables
+2. Look at other assumptions which were listed in the ppt and build some POC around them
+3. Prepare for the presentation in the evening
+
+# JMJPFU
+# 16-Dec-2016
+
+Let us look at another perspective. Let us club all the loans indicated as good or bad or ugly seperately and try it as a regression problem with indiscore as the variable. Let us try to learn the variable importance from each of the seperate classes and see if there are any emerging trends within them.
+
+# Calculating the aggrgate scores for each of the portfolio seperately
+
+```{r}
+good_agg <-  mood_agg(Good_assets)
+medium_agg <- mood_agg(Medium_assets)
+bad_agg <- mood_agg(Bad_assets)
+
+# Let us consolidated each of the above into one data frame and then do some visualisation
+
+good_agg$Thirdtier <- "Good"
+medium_agg$Thirdtier <- "Medium"
+bad_agg$Thirdtier <- "Bad"
+
+# Consolidating all these into one
+
+All_agg <- rbind(good_agg,medium_agg,bad_agg)
+
+# Visualising the same
+
+
+
+ggplot(All_agg,aes(FirstTier,Variable)) + geom_point() + geom_line()+ facet_grid(Thirdtier~.,scales="free") # not a good format
+
+All_filt <- All_agg %>% filter(FirstTier == "DPD")
+
+
+
+ggplot(All_filt,aes(SecondTier,Variable,group=1,color=SecondTier)) + geom_point() + geom_line()+ facet_grid(Thirdtier~.,scales="free")+theme(axis.text.x=element_text(angle=90,hjust=1))
+
+
+```
+Now let us look at modelling for the available three asset classes
+
+Let us do a simple linear regression
+
+Let us first try a Random Forest implementation and get the features importance measures
+
+
+```{r}
+
+library(randomForest)
+library(caret)
+
+good.rf <- randomForest(indscore~.,data=Good_assets,ntree=100,mtry=5,importance=TRUE)
+
+good_df <- data.frame(varImp(good.rf,scale=TRUE))
+
+good_df$Variable <- row.names(good_df)
+
+# Medium
+
+medium.rf <- randomForest(indscore~.,data=Medium_assets,ntree=100,mtry=5,importance=TRUE)
+
+medium_df <- data.frame(varImp(medium.rf,scale=TRUE))
+
+medium_df$Variable <- row.names(medium_df)
+
+# Bad
+
+bad.rf <- randomForest(indscore~.,data=Bad_assets,ntree=100,mtry=5,importance=TRUE)
+
+bad_df <- data.frame(varImp(bad.rf,scale=TRUE))
+
+bad_df$Variable <- row.names(bad_df)
+
+good_df$Tier <- "Good"
+bad_df$Tier <- "Bad"
+  
+medium_df$Tier <- "Medium"
+
+# Combining all together
+
+comb_VF <- rbind(good_df,bad_df,medium_df)
+
+# Visualising the same
+
+ggplot(comb_VF,aes(Variable,Overall,group=1,color=Tier)) + geom_point() + geom_line()+facet_grid(Tier~.,scale="free") + theme(axis.text.x=element_text(angle=90,hjust=1))
+
+```
+More than seperating the data into seperate classes, it might be a good idea to consolidate this and do a modelling with the indiscore variable and look at the variable importance.
+
+```{r}
+
+```
+
